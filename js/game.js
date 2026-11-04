@@ -4,15 +4,27 @@ import * as art from './art.js';
 import { sfx } from './audio.js';
 import { upg } from './save.js';
 
-// food truck layout (stage is 1000 x 620)
-const BIN_Y = 112;
-const BACK_Y = 220;
-const FRONT_Y = 438;
-const BACK_STAND = 392;
-const FRONT_STAND = 452;
-const FRONT_TYPES = ['skillet', 'pot', 'kettle', 'steamer', 'toaster', 'juicer', 'chop'];
-const BUNNY_W = 86;
-const BUNNY_H = 132;
+// 3/4 kitchen layout (stage is 1000 x 620). Arrangement follows the classic layout of the
+// genre: diagonal pickup counter upper-left, U-shaped counters, stoves along the front.
+const BACK_STAND = 322;
+const FRONT_STAND = 498;
+const SERVE = [430, 322];
+const QUEUE = [[372, 246, 0.74], [300, 276, 0.79], [228, 306, 0.84], [156, 336, 0.89], [84, 366, 0.94]];
+const ZONE_OF = {
+  skillet: 'front', pot: 'front', mixer: 'front', toaster: 'front',
+  oven: 'back', coffee: 'back', kettle: 'back',
+  chop: 'left', steamer: 'left', juicer: 'left',
+  board: 'right', ricecooker: 'right',
+};
+const ZONES = {
+  front: { max: 6, cx: 560, cy: 480, dx: 104, dy: 0, size: 96, stand: (x) => [x, FRONT_STAND] },
+  back: { max: 5, cx: 790, cy: 172, dx: 92, dy: 0, size: 80, stand: (x) => [Math.min(860, Math.max(560, x)), BACK_STAND] },
+  left: { max: 2, cx: 88, cy: 505, dx: 0, dy: 88, size: 86, stand: (x, y) => [200, Math.min(FRONT_STAND, Math.max(440, y))] },
+  right: { max: 2, cx: 946, cy: 330, dx: 0, dy: 86, size: 78, stand: (x, y) => [862, Math.max(BACK_STAND, y + 20)] },
+};
+const BUNNY_W = 100;
+const BUNNY_H = 154;
+const depthScale = (y) => 0.8 + 0.2 * Math.min(1, Math.max(0, (y - BACK_STAND) / (FRONT_STAND - BACK_STAND)));
 const MAX_QUEUE = 8;
 const RUSH_NEED = 30;
 const RUSH_TIME = 15;
@@ -82,89 +94,97 @@ export class Game {
     this.root.innerHTML = '';
     const scene = el(`scene theme-${world.theme}`, '', this.root);
     this.scene = scene;
-    // street outside + food truck interior (back wall, shelf, back counter, floor)
-    el('street', `<div class="sky"></div>${art.skylineSVG(world.theme)}<div class="sidewalk"></div><div class="lamp"></div>`, scene);
-    el('ftruck', `<div class="t-wall"><div class="lights"></div><div class="shelf"></div></div><div class="t-backcounter"></div><div class="t-floor"></div><div class="t-hatch"></div><div class="awning"></div>`, scene);
+    // 3/4 top-down food truck: street + skyline behind the slanted service window (upper left),
+    // U-shaped kitchen (back counter, left and right columns) and a perspective floor.
+    el('bg', art.truckSceneSVG(world.theme), scene);
     this.custLayer = el('layer cust-layer', '', scene);
+    el('service', art.serviceCounterSVG(world.theme), scene);
     this.bubbleLayer = el('layer bubble-layer', '', scene);
     this.kitchen = el('layer kitchen', '', scene);
     this.fx = el('layer fx', '', scene);
-    el('t-front', `<div class="stripe"></div><div class="truckname">Mochi's ${art.ic(world.icon)} ${world.name}</div><div class="wheel w1"></div><div class="wheel w2"></div>`, this.kitchen);
+    el('fg-front', art.frontCounterSVG(world.theme, world.name), this.kitchen);
 
-    // queue spots outside the service window (perspective: back = small/high, front = big/low)
-    this.seats = Array.from({ length: lv.seats }, (_, i) => {
-      const t = lv.seats === 1 ? 0.6 : 0.1 + (0.9 * i) / (lv.seats - 1);
-      const seat = { isSeat: true, x: 222 - 118 * t, y: 238 + 270 * t, scale: 0.7 + 0.32 * t, t, cust: null };
-      seat.sx = 352;
-      seat.sy = BACK_STAND + (FRONT_STAND - BACK_STAND) * t;
+    // queue spots along the slanted service counter (back = upper right, front = lower left)
+    const spots = QUEUE.filter((_, i) => lv.seats >= 5 || [[2], [1, 3], [0, 2, 4], [0, 1, 3, 4]][lv.seats - 1].includes(i));
+    this.seats = spots.map(([x, y, sc], i) => {
+      const seat = { isSeat: true, x, y, scale: sc, cust: null, sx: SERVE[0], sy: SERVE[1] };
       seat.hit = el('seat-hit', '', this.bubbleLayer);
-      Object.assign(seat.hit.style, { left: `${seat.x - 50 * seat.scale}px`, top: `${seat.y - 150 * seat.scale}px`, width: `${100 * seat.scale}px`, height: `${150 * seat.scale}px` });
+      Object.assign(seat.hit.style, { left: `${x - 50 * sc}px`, top: `${y - 150 * sc}px`, width: `${100 * sc}px`, height: `${130 * sc}px` });
       seat.hit.addEventListener('pointerdown', (e) => { e.preventDefault(); this.tapSeat(i); });
       return seat;
     });
 
-    // stations split into a back counter (ovens, mixers...) and a front stovetop row
+    // stations go to the zone each one belongs to, spilling over to the next free zone
     const list = [];
     lv.stationTypes.forEach((t) => {
       const n = 1 + (lv.extra[t] || 0);
       for (let i = 0; i < n; i++) list.push(t);
     });
-    let front = list.filter((t) => FRONT_TYPES.includes(t));
-    let back = list.filter((t) => !FRONT_TYPES.includes(t));
-    while (front.length > 6) back.push(front.pop());
-    while (back.length > 6) front.push(back.pop());
-    const make = (type, x, row) => {
-      const big = row === 'front';
-      const s = {
-        kind: 'station', type, row, x, y: big ? FRONT_Y : BACK_Y, sx: x, sy: big ? FRONT_STAND : BACK_STAND,
-        contents: [], state: 'idle', t: 0, dur: 0, product: null, servings: 0, age: 0, burnT: 0, step: null, dirty: true,
-      };
-      const size = big ? 104 : 88;
-      s.el = el(`station row-${row}`, `<div class="st-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[type]}</svg></div>
-        <div class="st-items"></div>
-        <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="rbg"/><circle cx="20" cy="20" r="16" class="rfg"/></svg>
-        <div class="st-label">${STATIONS[type].n}</div><div class="qb"></div>`, this.kitchen);
-      Object.assign(s.el.style, { left: `${s.x}px`, top: `${s.y}px`, width: `${size}px`, height: `${size}px` });
-      s.itemsEl = s.el.querySelector('.st-items');
-      s.ring = s.el.querySelector('.ring');
-      s.rfg = s.el.querySelector('.rfg');
-      s.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(s); });
-      return s;
-    };
-    const fx = spread(front.length || 1, front.length > 4 ? 400 : 450, front.length > 4 ? 860 : 820);
-    const bxs = spread(back.length || 1, back.length > 4 ? 420 : 470, back.length > 4 ? 930 : 880);
-    this.stations = [...front.map((t, i) => make(t, fx[i], 'front')), ...back.map((t, i) => make(t, bxs[i], 'back'))];
+    const zones = { front: [], back: [], left: [], right: [] };
+    list.forEach((t) => {
+      const order = [ZONE_OF[t] || 'back', 'back', 'front', 'right', 'left'];
+      const z = order.find((zn) => zones[zn].length < ZONES[zn].max);
+      zones[z].push(t);
+    });
+    this.stations = [];
+    Object.entries(zones).forEach(([zn, types]) => {
+      const Z = ZONES[zn];
+      types.forEach((type, i) => {
+        const off = i - (types.length - 1) / 2;
+        const x = Z.cx + off * Z.dx;
+        const y = Z.cy + off * Z.dy;
+        const s = {
+          kind: 'station', type, row: zn, x, y, sx: Z.stand(x, y)[0], sy: Z.stand(x, y)[1],
+          contents: [], state: 'idle', t: 0, dur: 0, product: null, servings: 0, age: 0, burnT: 0, step: null, dirty: true,
+        };
+        s.el = el(`station row-${zn}`, `<div class="st-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[type]}</svg></div>
+          <div class="st-items"></div>
+          <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="rbg"/><circle cx="20" cy="20" r="16" class="rfg"/></svg>
+          <div class="st-label">${STATIONS[type].n}</div><div class="qb"></div>`, this.kitchen);
+        Object.assign(s.el.style, { left: `${x}px`, top: `${y}px`, width: `${Z.size}px`, height: `${Z.size}px`, zIndex: zn === 'front' ? 560 : Math.round(y + Z.size / 2) });
+        s.itemsEl = s.el.querySelector('.st-items');
+        s.ring = s.el.querySelector('.ring');
+        s.rfg = s.el.querySelector('.rfg');
+        s.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(s); });
+        this.stations.push(s);
+      });
+    });
 
-    // ingredient crates on the back shelf
-    const bx = spread(lv.bins.length, lv.bins.length > 6 ? 365 : 420, lv.bins.length > 6 ? 965 : 900);
-    const bsize = Math.min(70, (bx.length > 1 ? bx[1] - bx[0] : 80) * 0.95);
+    // pantry crates on the back wall shelf
+    const n = lv.bins.length;
+    const bx = spread(n, n > 7 ? 548 : 580, n > 7 ? 978 : 950);
+    const bsize = Math.min(58, (n > 1 ? bx[1] - bx[0] : 60) * 0.98);
     this.bins = lv.bins.map((item, i) => {
-      const b = { kind: 'bin', item, x: bx[i], y: BIN_Y, sx: bx[i], sy: BACK_STAND };
+      const b = { kind: 'bin', item, x: bx[i], y: 100, sx: Math.min(860, Math.max(540, bx[i])), sy: BACK_STAND };
       b.el = el('bin', `${art.binSVG(ITEMS[item].ready ? '#ffc2d4' : ['#ffd9b8', '#c6ecdf', '#e3d6ff', '#cfe8f7', '#fff0b3'][i % 5])}<div class="bin-item">${art.itemHTML(item, { plate: false })}</div><div class="bin-label">${ITEMS[item].n}</div><div class="qb"></div>`, this.kitchen);
       Object.assign(b.el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${bsize}px` });
       b.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(b); });
       return b;
     });
 
-    // holding plates on the service window ledge
+    // holding plates on a little pass table beside the service window
     const nPlates = Math.min(3, lv.plates + upg(this.save, 'plate'));
     this.plates = Array.from({ length: nPlates }, (_, i) => {
-      const y = 300 + i * 62;
-      const p = { kind: 'plate', item: null, x: 312, y, sx: 360, sy: BACK_STAND + 10 + i * 18 };
+      const y = 350 + i * 52;
+      const p = { kind: 'plate', item: null, x: 268, y, sx: 330, sy: Math.min(FRONT_STAND, y + 30) };
       p.el = el('hplate', `${art.plateSVG}<div class="hp-item"></div><div class="qb"></div>`, this.kitchen);
-      Object.assign(p.el.style, { left: `${p.x}px`, top: `${p.y}px` });
+      Object.assign(p.el.style, { left: `${p.x}px`, top: `${p.y}px`, zIndex: Math.round(y + 20) });
       p.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(p); });
       return p;
     });
+    if (nPlates) {
+      const tbl = el('pass-table', '', this.kitchen);
+      Object.assign(tbl.style, { left: '232px', top: '330px', height: `${nPlates * 52 + 26}px`, zIndex: 330 });
+    }
 
-    // trash at the end of the front counter
-    this.trash = { kind: 'trash', x: 948, y: FRONT_Y + 4, sx: 905, sy: FRONT_STAND };
+    // trash on the right column, near the front
+    this.trash = { kind: 'trash', x: 938, y: 470, sx: 850, sy: FRONT_STAND - 14 };
     this.trash.el = el('trash', `${art.trashSVG}<div class="qb"></div><div class="st-label">Trash</div>`, this.kitchen);
-    Object.assign(this.trash.el.style, { left: `${this.trash.x}px`, top: `${this.trash.y}px` });
+    Object.assign(this.trash.el.style, { left: `${this.trash.x}px`, top: `${this.trash.y}px`, zIndex: 505 });
     this.trash.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(this.trash); });
 
-    // Mochi
-    this.bunny = { x: 620, y: BACK_STAND + 20, hands: [], face: 1, mood: '', moodT: 0, hop: 0 };
+    // Mochi (scaled by depth like the classic games: 80% at the back, 100% at the front)
+    this.bunny = { x: 600, y: 410, hands: [], face: 1, mood: '', moodT: 0, hop: 0 };
     this.bunny.el = el('bunny', `<div class="bunny-body">${art.bunnySVG()}</div><div class="held"></div>`, this.kitchen);
     this.heldEl = this.bunny.el.querySelector('.held');
 
@@ -628,7 +648,9 @@ export class Game {
     if (b.moving) b.hop += 0.016 * 16;
     const hopY = b.moving ? -Math.abs(Math.sin(b.hop)) * 12 : 0;
     if (b.moving && Math.sin(b.hop) * Math.sin(b.hop - 0.25) < 0) sfx.hop();
-    b.el.style.transform = `translate(${b.x - BUNNY_W / 2}px, ${b.y - BUNNY_H + hopY}px)`;
+    const sc = depthScale(b.y);
+    b.el.style.transform = `translate(${b.x - (BUNNY_W * sc) / 2}px, ${b.y - BUNNY_H * sc + hopY}px) scale(${sc})`;
+    b.el.style.zIndex = Math.round(b.y);
     b.el.classList.toggle('flip', b.face < 0);
     b.el.classList.toggle('moving', !!b.moving);
 

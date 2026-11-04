@@ -523,12 +523,12 @@ html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
 .map-mochi.landed .mm-body { animation: land .45s ease-out, bob 2.2s ease-in-out .45s infinite; }
 @keyframes land { 30% { transform: scale(1.15, .85); } 60% { transform: scale(.95, 1.08); } }
 .map-mochi svg { width: 100%; height: 100%; overflow: visible; }
-.city-banner { position: absolute; top: 72px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px;
+.city-banner { position: absolute; top: 64px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px;
   background: #fffdfb; border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 5px 0 var(--ink); white-space: nowrap; z-index: 1; }
 .city-banner .cb-ic .ic { width: 46px; height: 46px; }
 .city-banner b { display: block; font-size: 24px; line-height: 1; }
 .city-banner span { font-size: 13px; color: var(--ink-soft); }
-.gate-sign { position: absolute; top: 470px; transform: translateX(-50%); background: #fff; border: 4px solid var(--ink); border-radius: 18px; padding: 4px 12px; text-align: center; z-index: 2; box-shadow: 0 4px 0 var(--ink); }
+.gate-sign { position: absolute; top: 330px; transform: translateX(-50%); background: #fff; border: 4px solid var(--ink); border-radius: 18px; padding: 4px 12px; text-align: center; z-index: 2; box-shadow: 0 4px 0 var(--ink); }
 .gate-sign .ic { width: 26px; height: 26px; }
 .gate-sign b { display: block; font-size: 18px; color: #f3a92a; -webkit-text-stroke: 1px var(--ink); }
 .gate-sign span { font-size: 11.5px; font-weight: 700; }
@@ -537,3 +537,25 @@ html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
 .map-head > * { pointer-events: auto; }
 .map-nav { z-index: 10; pointer-events: none; }
 .map-nav > * { pointer-events: auto; }
+
+/* ---------------- 3/4 kitchen (classic layout) ---------------- */
+.scene > .bg, .scene > .service { position: absolute; inset: 0; pointer-events: none; }
+.scene > .bg svg, .scene > .service svg { width: 100%; height: 100%; display: block; }
+.scene > .service { z-index: 2; }
+.cust-layer { z-index: 1; }
+.bubble-layer { z-index: 3; }
+.kitchen { z-index: 4; }
+.fg-front { position: absolute; left: 0; top: 500px; width: 1000px; height: 120px; z-index: 530; pointer-events: none; }
+.fg-front svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.kitchen .bunny { width: 100px; height: 154px; transform-origin: 0 0; }
+.kitchen .bunny .held { top: 100px; }
+.kitchen .bin { z-index: 150; }
+.pass-table { position: absolute; width: 72px; border-radius: 14px; background: #fffdfb; border: 3px solid var(--ink); box-shadow: 0 8px 0 rgba(107,74,99,.18); pointer-events: none; }
+.kitchen .hplate { width: 62px; height: 38px; }
+.station.row-front .st-label { bottom: -2px; }
+.station.row-left .st-label, .station.row-right .st-label { bottom: -10px; }
+.tray { left: auto; right: 8px; bottom: 6px; }
+.hint { top: 60px; left: 770px; max-width: 420px; font-size: 14px; }
+.bubble { min-width: 58px; }
+.b-items .itm { width: 30px; height: 30px; }
+.b-hearts { font-size: 11px; }
