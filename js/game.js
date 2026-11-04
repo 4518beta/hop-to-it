@@ -4,10 +4,15 @@ import * as art from './art.js';
 import { sfx } from './audio.js';
 import { upg } from './save.js';
 
-const STATION_Y = 382;
-const STAND_Y = 474;
-const BIN_Y = 574;
-const SEAT_Y = 262;
+// food truck layout (stage is 1000 x 620)
+const BIN_Y = 112;
+const BACK_Y = 220;
+const FRONT_Y = 438;
+const BACK_STAND = 392;
+const FRONT_STAND = 452;
+const FRONT_TYPES = ['skillet', 'pot', 'kettle', 'steamer', 'toaster', 'juicer', 'chop'];
+const BUNNY_W = 86;
+const BUNNY_H = 132;
 const MAX_QUEUE = 8;
 const RUSH_NEED = 30;
 const RUSH_TIME = 15;
@@ -77,39 +82,45 @@ export class Game {
     this.root.innerHTML = '';
     const scene = el(`scene theme-${world.theme}`, '', this.root);
     this.scene = scene;
-    const DECO = { diner: ['cityscape', 'potted-plant', 'carrot'], bakery: ['croissant', 'four-leaf-clover', 'baguette-bread'], noodle: ['tokyo-tower', 'red-paper-lantern', 'red-paper-lantern'] }[world.theme];
-    el('dining', `<div class="wallpaper"></div><div class="window"><div class="sky"></div><div class="skyline">${art.ic(DECO[0])}</div></div><div class="door"></div><div class="deco d1">${art.ic(DECO[2])}</div><div class="deco d2">${art.ic(DECO[1])}</div><div class="bunting"></div>`, scene);
+    // street outside + food truck interior (back wall, shelf, back counter, floor)
+    el('street', `<div class="sky"></div>${art.skylineSVG(world.theme)}<div class="sidewalk"></div><div class="lamp"></div>`, scene);
+    el('ftruck', `<div class="t-wall"><div class="lights"></div><div class="shelf"></div></div><div class="t-backcounter"></div><div class="t-floor"></div><div class="t-hatch"></div><div class="awning"></div>`, scene);
     this.custLayer = el('layer cust-layer', '', scene);
-    el('counter', '<div class="counter-top"></div>', scene);
     this.bubbleLayer = el('layer bubble-layer', '', scene);
-    el('floor', '', scene);
     this.kitchen = el('layer kitchen', '', scene);
     this.fx = el('layer fx', '', scene);
+    el('t-front', `<div class="stripe"></div><div class="truckname">Mochi's ${art.ic(world.icon)} ${world.name}</div><div class="wheel w1"></div><div class="wheel w2"></div>`, this.kitchen);
 
-    // seats
-    this.seats = spread(lv.seats, lv.seats <= 2 ? 360 : 250, lv.seats <= 2 ? 700 : 880).map((x) => ({ x, cust: null }));
-    this.seats.forEach((s, i) => {
-      s.stool = el('stool', '', this.custLayer);
-      s.stool.style.left = `${s.x}px`;
-      s.hit = el('seat-hit', '', this.bubbleLayer);
-      s.hit.style.left = `${s.x}px`;
-      s.hit.addEventListener('pointerdown', (e) => { e.preventDefault(); this.tapSeat(i); });
+    // queue spots outside the service window (perspective: back = small/high, front = big/low)
+    this.seats = Array.from({ length: lv.seats }, (_, i) => {
+      const t = lv.seats === 1 ? 0.6 : 0.1 + (0.9 * i) / (lv.seats - 1);
+      const seat = { isSeat: true, x: 222 - 118 * t, y: 238 + 270 * t, scale: 0.7 + 0.32 * t, t, cust: null };
+      seat.sx = 352;
+      seat.sy = BACK_STAND + (FRONT_STAND - BACK_STAND) * t;
+      seat.hit = el('seat-hit', '', this.bubbleLayer);
+      Object.assign(seat.hit.style, { left: `${seat.x - 50 * seat.scale}px`, top: `${seat.y - 150 * seat.scale}px`, width: `${100 * seat.scale}px`, height: `${150 * seat.scale}px` });
+      seat.hit.addEventListener('pointerdown', (e) => { e.preventDefault(); this.tapSeat(i); });
+      return seat;
     });
 
-    // stations
+    // stations split into a back counter (ovens, mixers...) and a front stovetop row
     const list = [];
     lv.stationTypes.forEach((t) => {
       const n = 1 + (lv.extra[t] || 0);
       for (let i = 0; i < n; i++) list.push(t);
     });
-    const xs = spread(list.length, 200, 860);
-    const size = Math.min(104, (680 / Math.max(1, list.length - 1 || 1)) * 0.98);
-    this.stations = list.map((type, i) => {
+    let front = list.filter((t) => FRONT_TYPES.includes(t));
+    let back = list.filter((t) => !FRONT_TYPES.includes(t));
+    while (front.length > 6) back.push(front.pop());
+    while (back.length > 6) front.push(back.pop());
+    const make = (type, x, row) => {
+      const big = row === 'front';
       const s = {
-        kind: 'station', type, x: xs[i], y: STATION_Y, sx: xs[i], sy: STAND_Y,
+        kind: 'station', type, row, x, y: big ? FRONT_Y : BACK_Y, sx: x, sy: big ? FRONT_STAND : BACK_STAND,
         contents: [], state: 'idle', t: 0, dur: 0, product: null, servings: 0, age: 0, burnT: 0, step: null, dirty: true,
       };
-      s.el = el('station', `<div class="st-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[type]}</svg></div>
+      const size = big ? 104 : 88;
+      s.el = el(`station row-${row}`, `<div class="st-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[type]}</svg></div>
         <div class="st-items"></div>
         <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="rbg"/><circle cx="20" cy="20" r="16" class="rfg"/></svg>
         <div class="st-label">${STATIONS[type].n}</div><div class="qb"></div>`, this.kitchen);
@@ -119,37 +130,41 @@ export class Game {
       s.rfg = s.el.querySelector('.rfg');
       s.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(s); });
       return s;
-    });
+    };
+    const fx = spread(front.length || 1, front.length > 4 ? 400 : 450, front.length > 4 ? 860 : 820);
+    const bxs = spread(back.length || 1, back.length > 4 ? 420 : 470, back.length > 4 ? 930 : 880);
+    this.stations = [...front.map((t, i) => make(t, fx[i], 'front')), ...back.map((t, i) => make(t, bxs[i], 'back'))];
 
-    // bins
-    const bx = spread(lv.bins.length, lv.bins.length > 7 ? 150 : 220, lv.bins.length > 7 ? 880 : 820);
-    const bsize = Math.min(78, (bx.length > 1 ? bx[1] - bx[0] : 80) * 0.95);
+    // ingredient crates on the back shelf
+    const bx = spread(lv.bins.length, lv.bins.length > 6 ? 365 : 420, lv.bins.length > 6 ? 965 : 900);
+    const bsize = Math.min(70, (bx.length > 1 ? bx[1] - bx[0] : 80) * 0.95);
     this.bins = lv.bins.map((item, i) => {
-      const b = { kind: 'bin', item, x: bx[i], y: BIN_Y, sx: bx[i], sy: BIN_Y - 46 };
+      const b = { kind: 'bin', item, x: bx[i], y: BIN_Y, sx: bx[i], sy: BACK_STAND };
       b.el = el('bin', `${art.binSVG(ITEMS[item].ready ? '#ffc2d4' : ['#ffd9b8', '#c6ecdf', '#e3d6ff', '#cfe8f7', '#fff0b3'][i % 5])}<div class="bin-item">${art.itemHTML(item, { plate: false })}</div><div class="bin-label">${ITEMS[item].n}</div><div class="qb"></div>`, this.kitchen);
       Object.assign(b.el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${bsize}px` });
       b.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(b); });
       return b;
     });
 
-    // holding plates
+    // holding plates on the service window ledge
     const nPlates = Math.min(3, lv.plates + upg(this.save, 'plate'));
     this.plates = Array.from({ length: nPlates }, (_, i) => {
-      const p = { kind: 'plate', item: null, x: 62, y: 340 + i * 74, sx: 120, sy: 372 + i * 64 };
+      const y = 300 + i * 62;
+      const p = { kind: 'plate', item: null, x: 312, y, sx: 360, sy: BACK_STAND + 10 + i * 18 };
       p.el = el('hplate', `${art.plateSVG}<div class="hp-item"></div><div class="qb"></div>`, this.kitchen);
       Object.assign(p.el.style, { left: `${p.x}px`, top: `${p.y}px` });
       p.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(p); });
       return p;
     });
 
-    // trash
-    this.trash = { kind: 'trash', x: 950, y: 455, sx: 900, sy: 490 };
+    // trash at the end of the front counter
+    this.trash = { kind: 'trash', x: 948, y: FRONT_Y + 4, sx: 905, sy: FRONT_STAND };
     this.trash.el = el('trash', `${art.trashSVG}<div class="qb"></div><div class="st-label">Trash</div>`, this.kitchen);
-    Object.assign(this.trash.el.style, { left: '950px', top: '455px' });
+    Object.assign(this.trash.el.style, { left: `${this.trash.x}px`, top: `${this.trash.y}px` });
     this.trash.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(this.trash); });
 
     // Mochi
-    this.bunny = { x: 520, y: STAND_Y + 14, hands: [], face: 1, mood: '', moodT: 0, hop: 0 };
+    this.bunny = { x: 620, y: BACK_STAND + 20, hands: [], face: 1, mood: '', moodT: 0, hop: 0 };
     this.bunny.el = el('bunny', `<div class="bunny-body">${art.bunnySVG()}</div><div class="held"></div>`, this.kitchen);
     this.heldEl = this.bunny.el.querySelector('.held');
 
@@ -260,7 +275,9 @@ export class Game {
     seat.cust = c;
     c.el = el('cust', `<div class="cust-body">${art.customerSVG(animal, Math.random() < 0.5 ? Math.floor(rand(-60, 60)) : 0)}</div>`, this.custLayer);
     c.bubble = el('bubble hidden', '<div class="b-items"></div><div class="b-hearts"></div>', this.bubbleLayer);
-    c.bubble.style.left = `${seat.x}px`;
+    Object.assign(c.bubble.style, { left: `${seat.x + 26 * seat.scale}px`, top: `${seat.y - 150 * seat.scale - 6}px` });
+    c.el.style.zIndex = Math.round(seat.y);
+    c.bubble.style.zIndex = Math.round(seat.y) + 600;
     c.bubble.addEventListener('pointerdown', (e) => { e.preventDefault(); this.tapSeat(this.seats.indexOf(seat)); });
     c.heartsEl = c.bubble.querySelector('.b-hearts');
     c.itemsEl = c.bubble.querySelector('.b-items');
@@ -293,7 +310,7 @@ export class Game {
         this.streak = 0;
         this.release(c);
         sfx.leave();
-        this.popText(c.seat.x, 150, 'Hmph!', 'bad');
+        this.popText(c.seat.x, c.seat.y - 150 * c.seat.scale, 'Hmph!', 'bad');
       }
     } else if (c.state === 'happy') {
       if (c.t > 0.9) { c.state = 'leave'; this.release(c); }
@@ -385,7 +402,6 @@ export class Game {
   }
 
   standPoint(ref) {
-    if (ref.cust !== undefined && ref.x !== undefined && ref.stool) return { x: ref.x, y: SEAT_Y + 52 };
     return { x: ref.sx, y: ref.sy };
   }
 
@@ -456,7 +472,7 @@ export class Game {
         break;
       }
       default:
-        if (ref.stool) this.serve(ref, cust);
+        if (ref.isSeat) this.serve(ref, cust);
     }
     this.renderHands();
   }
@@ -548,8 +564,8 @@ export class Game {
       c.el.classList.add('happy');
       sfx.serve();
       this.setMood('happy', 1);
-      this.popText(seat.x, 140, `+${total}`, 'coin');
-      if (chain) this.popText(seat.x, 110, `Streak x${this.streak}!`, 'streak');
+      this.popText(seat.x + 30, seat.y - 150 * seat.scale + 20, `+${total}`, 'coin');
+      if (chain) this.popText(seat.x + 30, seat.y - 150 * seat.scale - 10, `Streak x${this.streak}!`, 'streak');
       if (this.rush <= 0) {
         this.heart += hearts;
         if (this.heart >= RUSH_NEED) this.startRush();
@@ -612,13 +628,12 @@ export class Game {
     if (b.moving) b.hop += 0.016 * 16;
     const hopY = b.moving ? -Math.abs(Math.sin(b.hop)) * 12 : 0;
     if (b.moving && Math.sin(b.hop) * Math.sin(b.hop - 0.25) < 0) sfx.hop();
-    b.el.style.transform = `translate(${b.x - 52}px, ${b.y - 158 + hopY}px)`;
-    b.el.style.zIndex = Math.round(b.y);
+    b.el.style.transform = `translate(${b.x - BUNNY_W / 2}px, ${b.y - BUNNY_H + hopY}px)`;
     b.el.classList.toggle('flip', b.face < 0);
     b.el.classList.toggle('moving', !!b.moving);
 
     for (const c of this.customers) {
-      c.el.style.transform = `translateX(${c.x - 50}px)`;
+      c.el.style.transform = `translate(${c.x - 50 * c.seat.scale}px, ${c.seat.y - 150 * c.seat.scale}px) scale(${c.seat.scale})`;
       if (c.state === 'wait') {
         const frac = c.patience / c.max;
         c.el.classList.toggle('impatient', frac < 0.35);
@@ -678,7 +693,7 @@ export class Game {
     this.seats.forEach((s) => counts.set(s, []));
     this.queue.forEach((q, i) => counts.get(q.ref)?.push(i + 1));
     counts.forEach((nums, r) => {
-      const target = r.stool ? r.hit : r.el;
+      const target = r.isSeat ? r.hit : r.el;
       let qb = target.querySelector('.qb');
       if (!qb) qb = el('qb', '', target);
       qb.textContent = nums.length ? nums.join(' ') : '';
@@ -772,8 +787,8 @@ export class Game {
       this.hintEl.classList.toggle('show', !!text);
     }
     if (target) {
-      const x = isSeat || target.stool ? target.x : target.x;
-      const y = isSeat || target.stool ? 40 : (target.y - 70);
+      const x = target.isSeat ? target.x + 50 : target.x;
+      const y = target.isSeat ? target.y - 150 * target.scale - 50 : (target.y - (target.kind === 'bin' ? 62 : 80));
       this.pointer.style.transform = `translate(${x - 18}px, ${y}px)`;
       this.pointer.classList.add('show');
     } else {

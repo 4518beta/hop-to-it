@@ -114,65 +114,147 @@ export class UI {
     return totalStars(this.save) >= WORLDS[i].starsToUnlock && !!this.save.stars[prevLast.id];
   }
 
-  cities() {
-    this.endGame();
-    const stars = totalStars(this.save);
-    this.gameRoot.innerHTML = '<div class="map-bg theme-world"></div>';
-    const pos = [[200, 380], [500, 250], [800, 390]];
-    this.show(`
-      <div class="map-head">
-        <button class="btn small" data-act="title">⌂</button>
-        <div class="map-title"><h2>Pick a city</h2><p>Mochi's food truck tour</p></div>
-        <div class="wallet">${art.ic('coin')} ${this.save.wallet} · ★ ${stars}</div>
-      </div>
-      <svg class="map-path road" viewBox="0 0 1000 620"><path d="M200 380 C330 380 360 250 500 250 S690 390 800 390"/></svg>
-      ${WORLDS.map((w, i) => {
-        const open = this.cityOpen(i);
-        const levels = LEVELS.filter((l) => l.world === i);
-        const got = levels.reduce((a, l) => a + (this.save.stars[l.id] || 0), 0);
-        return `<button class="city theme-${w.theme} ${open ? '' : 'locked'}" style="left:${pos[i][0]}px;top:${pos[i][1]}px" ${open ? `data-act="map" data-arg="${i}"` : ''}>
-          <span class="city-ic">${art.ic(open ? w.icon : 'locked')}</span>
-          <b>${w.name}</b><span class="city-sub">${open ? `★ ${got}/${levels.length * 3}` : `Needs ★ ${w.starsToUnlock}${i ? ` + finish ${WORLDS[i - 1].name}` : ''}`}</span></button>`;
-      }).join('')}
-      <div class="truck">${art.bunnySVG()}</div>`, 'full map');
+  cities() { this.map(); }
+
+  // One long scrolling map: 3 cities, 30 stops on a winding road.
+  nodePos(i) {
+    const w = Math.floor(i / 10);
+    const j = i % 10;
+    return { x: w * 1000 + 110 + j * 88, y: 330 + Math.sin(j * 0.95 + w * 1.7) * 120 };
   }
 
-  map(worldIdx = 0) {
+  currentNode() {
+    let cur = 0;
+    LEVELS.forEach((l, i) => { if (this.levelUnlocked(i) && this.cityOpen(l.world)) cur = i; });
+    return cur;
+  }
+
+  roadPath() {
+    const pts = LEVELS.map((_, i) => this.nodePos(i));
+    pts.unshift({ x: 20, y: pts[0].y });
+    pts.push({ x: 2990, y: pts.at(-1).y });
+    let d = `M${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      d += ` C${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6} ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6} ${p2.x} ${p2.y}`;
+    }
+    return d;
+  }
+
+  scenery(w) {
+    const off = w * 1000;
+    const pal = [['#fff1c9', '#c6ecdf', '#ffd6e5'], ['#efe6ff', '#d6f0c8', '#ffd6e5'], ['#cfc6ff', '#bfe9da', '#ffe9b8']][w];
+    let g = `<rect x="${off}" y="0" width="1000" height="620" fill="${pal[0]}"/>`;
+    g += `<ellipse cx="${off + 250}" cy="640" rx="420" ry="190" fill="${pal[1]}"/><ellipse cx="${off + 780}" cy="660" rx="380" ry="170" fill="${pal[1]}"/>`;
+    g += `<ellipse cx="${off + 520}" cy="140" rx="300" ry="70" fill="#ffffff" opacity=".5"/>`;
+    // trees and bushes
+    for (let k = 0; k < 9; k++) {
+      const tx = off + 60 + k * 112 + (k % 2) * 30;
+      const ty = k % 2 ? 560 : 150 + (k % 3) * 18;
+      g += `<rect x="${tx - 5}" y="${ty - 4}" width="10" height="26" rx="4" fill="#d9b39a" stroke="#6b4a63" stroke-width="2.5"/><circle cx="${tx}" cy="${ty - 14}" r="22" fill="${k % 3 ? '#b8eedd' : pal[2]}" stroke="#6b4a63" stroke-width="2.5"/>`;
+    }
+    // little houses
+    for (let k = 0; k < 4; k++) {
+      const hx = off + 150 + k * 230;
+      const hy = k % 2 ? 470 : 205;
+      g += `<rect x="${hx}" y="${hy}" width="46" height="36" rx="5" fill="#fffdfb" stroke="#6b4a63" stroke-width="2.5"/><path d="M${hx - 6} ${hy + 2} L${hx + 23} ${hy - 22} L${hx + 52} ${hy + 2} Z" fill="${['#ff9cc0', '#b9a2f5', '#6ccfb0'][w]}" stroke="#6b4a63" stroke-width="2.5" stroke-linejoin="round"/><rect x="${hx + 17}" y="${hy + 16}" width="12" height="20" rx="3" fill="#ffd6e5"/>`;
+    }
+    return g;
+  }
+
+  map(worldIdx) {
     this.endGame();
-    this.mapWorld = worldIdx;
-    const w = WORLDS[worldIdx];
-    const levels = LEVELS.filter((l) => l.world === worldIdx);
     const stars = totalStars(this.save);
-    const prevWorldDone = worldIdx === 0 || !!this.save.stars[LEVELS.filter((l) => l.world === worldIdx - 1).at(-1).id];
-    const locked = stars < w.starsToUnlock || !prevWorldDone;
-    this.gameRoot.innerHTML = `<div class="map-bg theme-${w.theme}"></div>`;
-    const pts = levels.map((_, i) => {
-      const x = 110 + (i % 5) * 190 + (Math.floor(i / 5) % 2 ? 60 : 0);
-      const y = i < 5 ? 250 : 430;
-      return { x: Math.floor(i / 5) % 2 ? 1000 - x : x, y };
-    });
-    const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+    const cur = this.currentNode();
+    const hop = this.pendingHop;
+    this.pendingHop = null;
+    const start = hop ? hop[0] : cur;
+    this.gameRoot.innerHTML = '';
+    const nodes = LEVELS.map((lv, i) => {
+      const p = this.nodePos(i);
+      const open = this.cityOpen(lv.world) && this.levelUnlocked(i);
+      const st = this.save.stars[lv.id] || 0;
+      return `<button class="node ${open ? '' : 'locked'} ${st ? 'cleared' : ''} ${i === cur ? 'current' : ''}" style="left:${p.x}px;top:${p.y}px" ${open ? `data-act="level" data-arg="${i}"` : ''}>
+        <span class="n">${open ? lv.id : art.ic('locked')}</span>
+        <span class="st">${[0, 1, 2].map((k) => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</span>
+        <span class="ty">${art.ic(lv.type === 'timer' ? 'stopwatch' : lv.type === 'lose' ? 'broken-heart' : 'paw-prints')}</span></button>`;
+    }).join('');
+    const banners = WORLDS.map((w, i) => {
+      const open = this.cityOpen(i);
+      return `<div class="city-banner theme-${w.theme}" style="left:${i * 1000 + 500}px">
+          <span class="cb-ic">${art.ic(w.icon)}</span><div><b>${w.name}</b><span>${w.blurb}</span></div></div>
+        ${i ? `<div class="gate-sign ${open ? 'open' : ''}" style="left:${i * 1000}px">${open ? art.ic('sparkles') : art.ic('locked')}<b>★ ${w.starsToUnlock}</b><span>${open ? 'Open!' : `Finish ${WORLDS[i - 1].name}`}</span></div>` : ''}`;
+    }).join('');
+    const sp = this.nodePos(start);
     this.show(`
+      <div class="map-scroll"><div class="map-world">
+        <svg class="map-svg" viewBox="0 0 3000 620" width="3000" height="620">${[0, 1, 2].map((w) => this.scenery(w)).join('')}
+          <path class="road-edge" d="${this.roadPath()}"/><path class="road" d="${this.roadPath()}"/><path class="road-dash" d="${this.roadPath()}"/></svg>
+        ${banners}${nodes}
+        <div class="map-mochi" style="left:${sp.x}px;top:${sp.y}px"><div class="mm-body">${art.bunnySVG()}</div></div>
+      </div></div>
       <div class="map-head">
-        <button class="btn small" data-act="cities">◀ Cities</button>
-        <div class="map-title"><h2>${w.name}</h2><p>${w.blurb}</p></div>
+        <button class="btn small" data-act="title">⌂</button>
+        <div class="map-title"><h2>Mochi's road trip</h2><p>Swipe the map, tap a stop to cook</p></div>
         <div class="wallet">${art.ic('coin')} ${this.save.wallet} · ★ ${stars}</div>
       </div>
-      <svg class="map-path" viewBox="0 0 1000 620"><path d="${path}"/></svg>
-      ${levels.map((lv, i) => {
-        const open = !locked && this.levelUnlocked(lv.index);
-        const st = this.save.stars[lv.id] || 0;
-        return `<button class="node ${open ? '' : 'locked'} ${st ? 'cleared' : ''}" style="left:${pts[i].x}px;top:${pts[i].y}px" ${open ? `data-act="level" data-arg="${lv.index}"` : ''}>
-          <span class="n">${open ? lv.id : art.ic('locked')}</span>
-          <span class="st">${[0, 1, 2].map((k) => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</span>
-          <span class="ty">${art.ic(lv.type === 'timer' ? 'stopwatch' : lv.type === 'lose' ? 'broken-heart' : 'paw-prints')}</span></button>`;
-      }).join('')}
-      ${locked ? `<div class="gate">${art.ic('locked')} ${!prevWorldDone ? `Finish ${WORLDS[worldIdx - 1].name} to open.` : ''} Needs ★ ${w.starsToUnlock} (you have ${stars})</div>` : ''}
-      <div class="map-nav">
-        ${worldIdx > 0 ? `<button class="btn small" data-act="map" data-arg="${worldIdx - 1}">◀ ${WORLDS[worldIdx - 1].name}</button>` : '<span></span>'}
-        <button class="btn small" data-act="shop" data-arg="map">${art.ic('shopping-cart')} Upgrades</button>
-        ${worldIdx < WORLDS.length - 1 ? `<button class="btn small" data-act="map" data-arg="${worldIdx + 1}">${WORLDS[worldIdx + 1].name} ▶</button>` : '<span></span>'}
-      </div>`, 'full map');
+      <div class="map-nav"><span></span><button class="btn small" data-act="shop" data-arg="map">${art.ic('shopping-cart')} Upgrades</button><span></span></div>`, 'full map');
+    const scroller = this.overlay.querySelector('.map-scroll');
+    const focusX = worldIdx !== undefined && !hop && worldIdx !== LEVELS[cur].world ? worldIdx * 1000 + 500 : sp.x;
+    scroller.scrollLeft = Math.max(0, focusX - 500);
+    this.dragScroll(scroller);
+    if (hop) setTimeout(() => this.hopMochi(hop[0], hop[1], scroller), 450);
+  }
+
+  // Mochi bounces along the road from one stop to the next.
+  hopMochi(from, to, scroller) {
+    const m = this.overlay.querySelector('.map-mochi');
+    if (!m) return;
+    const a = this.nodePos(from);
+    const b = this.nodePos(to);
+    const hops = 3;
+    const dur = 1100;
+    const t0 = performance.now();
+    m.classList.add('hopping');
+    const tick = (now) => {
+      if (!m.isConnected) return;
+      const k = Math.min(1, (now - t0) / dur);
+      const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      const x = a.x + (b.x - a.x) * e;
+      const y = a.y + (b.y - a.y) * e - Math.abs(Math.sin(k * Math.PI * hops)) * 46;
+      m.style.left = `${x}px`;
+      m.style.top = `${y}px`;
+      m.classList.toggle('flip', b.x < a.x);
+      scroller.scrollLeft += ((x - 500) - scroller.scrollLeft) * 0.12;
+      if (Math.floor(k * hops * 2) !== this.lastHopBeat) { this.lastHopBeat = Math.floor(k * hops * 2); if (this.lastHopBeat % 2 === 0) sfx.hop(); }
+      if (k < 1) requestAnimationFrame(tick);
+      else {
+        m.classList.remove('hopping');
+        m.classList.add('landed');
+        sfx.star(2);
+        this.overlay.querySelector(`.node[data-arg="${to}"]`)?.classList.add('current', 'pop');
+      }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  dragScroll(el) {
+    let down = null;
+    el.addEventListener('wheel', (e) => { el.scrollLeft += e.deltaY + e.deltaX; e.preventDefault(); }, { passive: false });
+    el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') down = { x: e.clientX, s: el.scrollLeft, moved: false }; });
+    el.addEventListener('pointermove', (e) => {
+      if (!down) return;
+      const scale = this.stage.getBoundingClientRect().width / 1000;
+      const dx = (e.clientX - down.x) / scale;
+      if (Math.abs(dx) > 4) down.moved = true;
+      el.scrollLeft = down.s - dx;
+    });
+    const up = () => { if (down?.moved) { el.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true }); } down = null; };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerleave', () => { down = null; });
   }
 
   // -------------------------------------------------------------------------
@@ -234,6 +316,7 @@ export class UI {
 
   results(lv, r) {
     const prevStars = this.save.stars[lv.id] || 0;
+    const wasOpen = LEVELS[lv.index + 1] ? this.levelUnlocked(lv.index + 1) && this.cityOpen(LEVELS[lv.index + 1].world) : true;
     if (!r.failed && r.stars > 0) {
       this.save.stars[lv.id] = Math.max(prevStars, r.stars);
     }
@@ -242,6 +325,8 @@ export class UI {
     this.save.wallet += earned;
     this.persist();
     const pass = !r.failed && r.stars > 0;
+    const nowOpen = LEVELS[lv.index + 1] && this.levelUnlocked(lv.index + 1) && this.cityOpen(LEVELS[lv.index + 1].world);
+    if (pass && !wasOpen && nowOpen) this.pendingHop = [lv.index, lv.index + 1];
     const next = LEVELS[lv.index + 1];
     const nextOpen = next && this.levelUnlocked(next.index) && totalStars(this.save) >= WORLDS[next.world].starsToUnlock;
     const msg = r.failed ? 'Too many guests left unhappy.' : pass ? ['Nice shift!', 'Great shift!', 'Perfect shift!'][r.stars - 1] : `Reach ${art.ic('coin')} ${lv.goals[0]} to pass.`;
@@ -254,7 +339,7 @@ export class UI {
       <div class="btn-row">
         <button class="btn ghost" data-act="map" data-arg="${lv.world}">Map</button>
         <button class="btn" data-act="start" data-arg="${lv.index}">↻ Again</button>
-        ${pass && nextOpen ? `<button class="btn big" data-act="next" data-arg="${next.index}">Next ▶</button>` : ''}
+        ${pass && nextOpen ? `<button class="btn big" data-act="${this.pendingHop ? 'map' : 'next'}" data-arg="${this.pendingHop ? next.world : next.index}">Next ▶</button>` : ''}
         ${pass && next && !nextOpen ? `<button class="btn big" data-act="map" data-arg="${next.world}">Next world ▶</button>` : ''}
       </div></div>`);
     if (pass) {
