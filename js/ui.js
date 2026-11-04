@@ -118,9 +118,11 @@ export class UI {
 
   // One long scrolling map: 3 cities, 30 stops on a winding road.
   nodePos(i) {
+    // each city's road winds out and loops back on itself before heading to the next city
+    const LOOP = [[120, 480], [255, 515], [390, 480], [455, 385], [345, 305], [205, 250], [250, 160], [415, 140], [580, 195], [720, 300]];
     const w = Math.floor(i / 10);
-    const j = i % 10;
-    return { x: w * 1000 + 110 + j * 88, y: 330 + Math.sin(j * 0.95 + w * 1.7) * 120 };
+    const [x, y] = LOOP[i % 10];
+    return { x: w * 1000 + x, y: 190 + (y - 140) * 0.93 };
   }
 
   currentNode() {
@@ -132,7 +134,12 @@ export class UI {
   roadPath() {
     const pts = LEVELS.map((_, i) => this.nodePos(i));
     pts.unshift({ x: 20, y: pts[0].y });
-    pts.push({ x: 2990, y: pts.at(-1).y });
+    pts.push({ x: 2990, y: pts.at(-1).y + 80 });
+    // link each city's last stop to the next city's first stop with a sweeping curve
+    for (let w = 2; w >= 1; w--) {
+      const idx = w * 10 + 1; // after the unshift
+      pts.splice(idx, 0, { x: w * 1000 - 120, y: 430 }, { x: w * 1000 + 20, y: 500 });
+    }
     let d = `M${pts[0].x} ${pts[0].y}`;
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i];
@@ -186,7 +193,7 @@ export class UI {
       const open = this.cityOpen(i);
       return `<div class="city-banner theme-${w.theme}" style="left:${i * 1000 + 500}px">
           <span class="cb-ic">${art.ic(w.icon)}</span><div><b>${w.name}</b><span>${w.blurb}</span></div></div>
-        ${i ? `<div class="gate-sign ${open ? 'open' : ''}" style="left:${i * 1000}px">${open ? art.ic('sparkles') : art.ic('locked')}<b>★ ${w.starsToUnlock}</b><span>${open ? 'Open!' : `Finish ${WORLDS[i - 1].name}`}</span></div>` : ''}`;
+        ${i ? `<div class="gate-sign ${open ? 'open' : ''}" style="left:${i * 1000 - 50}px">${open ? art.ic('sparkles') : art.ic('locked')}<b>★ ${w.starsToUnlock}</b><span>${open ? 'Open!' : `Finish ${WORLDS[i - 1].name}`}</span></div>` : ''}`;
     }).join('');
     const sp = this.nodePos(start);
     this.show(`

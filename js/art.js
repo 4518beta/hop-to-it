@@ -215,3 +215,86 @@ export const skylineSVG = (theme) => {
   if (theme === 'diner') out += `<circle cx="250" cy="70" r="20" fill="#fff0b3"/><path d="M20 60 q10 -12 22 0 q10 -10 20 2 q-20 8 -42 -2Z" fill="#fff"/>`;
   return `<svg class="skyline-svg" viewBox="0 0 310 300" preserveAspectRatio="xMidYMax slice">${out}</svg>`;
 };
+
+// ---------------------------------------------------------------------------
+// 3/4 food truck scene. Stage 1000 x 620, HUD covers the top 52px.
+const THEME = {
+  diner: { truck: '#ff9cc0', truck2: '#fff0b3', wall1: '#fff3d6', wall2: '#ffe2ad', floor1: '#fffaf3', floor2: '#ffe0d2', top: '#fffdfb', face: '#ffd1c0', sky1: '#bfe6f5', sky2: '#eaf7ff', walk: '#ffe9f1' },
+  bakery: { truck: '#b9a2f5', truck2: '#fff6ee', wall1: '#efe6ff', wall2: '#dccdfb', floor1: '#fffaf6', floor2: '#ece2ff', top: '#fffdfb', face: '#d9ccfb', sky1: '#ffd6e5', sky2: '#fff3e8', walk: '#f3ecff' },
+  noodle: { truck: '#6ccfb0', truck2: '#fff3b0', wall1: '#dff6ee', wall2: '#bfe9da', floor1: '#fbfffd', floor2: '#d6f2e7', top: '#fffdfb', face: '#b7e6d6', sky1: '#8f86d6', sky2: '#c9b8ff', walk: '#e2f6ef' },
+};
+const counterTopY = (x) => 224 + (372 - x) * 0.4167; // slanted service counter edge
+
+const perspectiveFloor = (c) => {
+  const VPX = 600; const VPY = -380; const Y0 = 150; const Y1 = 620;
+  const rows = 9; const cols = 26; const w = 92;
+  const ys = Array.from({ length: rows + 1 }, (_, k) => Y0 + (Y1 - Y0) * (k / rows) ** 1.18);
+  const xAt = (j, y) => VPX + (j * w - cols * w / 2 + 40) * ((y - VPY) / (Y1 - VPY));
+  let out = `<rect x="0" y="${Y0}" width="1000" height="${Y1 - Y0}" fill="${c.floor1}"/>`;
+  for (let k = 0; k < rows; k++) {
+    for (let j = 0; j < cols; j++) {
+      if ((j + k) % 2) continue;
+      const a = ys[k]; const b = ys[k + 1];
+      out += `<path d="M${xAt(j, a)} ${a} L${xAt(j + 1, a)} ${a} L${xAt(j + 1, b)} ${b} L${xAt(j, b)} ${b}Z" fill="${c.floor2}"/>`;
+    }
+  }
+  return out;
+};
+
+export const truckSceneSVG = (theme) => {
+  const c = THEME[theme];
+  const S2 = `stroke="${INK}" stroke-width="3" stroke-linejoin="round"`;
+  // outside view through the service window: sky, skyline, sidewalk
+  const win = `M0 52 L540 52 L540 154 L0 ${counterTopY(0) - 6} Z`;
+  let g = `<defs><clipPath id="winclip"><path d="${win}"/></clipPath></defs>`;
+  g += perspectiveFloor(c);
+  g += `<g clip-path="url(#winclip)"><rect x="0" y="52" width="540" height="360" fill="${c.sky2}"/><rect x="0" y="52" width="540" height="120" fill="${c.sky1}" opacity=".7"/>
+    <g transform="translate(20 -30) scale(1.15)">${skylineSVG(theme).replace(/<svg[^>]*>|<\/svg>/g, '')}</g>
+    <path d="M0 250 L540 120 L540 420 L0 420Z" fill="${c.walk}"/></g>`;
+  g += `<path d="${win}" fill="none" ${S2} stroke-width="5"/>`;
+  // back wall with tiles, string lights and a pantry shelf
+  g += `<rect x="540" y="52" width="460" height="150" fill="${c.wall1}"/>`;
+  for (let x = 540; x < 1000; x += 30) for (let y = 52; y < 202; y += 30) if (((x - 540) / 30 + (y - 52) / 30) % 2 === 0) g += `<rect x="${x}" y="${y}" width="30" height="30" fill="${c.wall2}"/>`;
+  g += `<path d="M540 52 V202" ${S2}/>`;
+  g += `<path d="M548 130 H996" stroke="${INK}" stroke-width="4"/><rect x="548" y="126" width="448" height="9" rx="4" fill="#e9c7ad" ${S2}/>`;
+  for (let x = 560; x < 1000; x += 46) g += `<circle cx="${x}" cy="${62 + ((x / 46) % 2) * 3}" r="4.5" fill="#fff3b0" stroke="${INK}" stroke-width="1.5"/>`;
+  // back counter: top surface + cabinet face
+  g += `<path d="M540 202 L1000 202 L1000 226 L540 226Z" fill="${c.top}" ${S2}/><path d="M540 226 L1000 226 L1000 266 L540 266Z" fill="${c.face}" ${S2}/>`;
+  for (let x = 560; x < 990; x += 70) g += `<rect x="${x}" y="233" width="58" height="26" rx="5" fill="#ffffff66" stroke="${INK}" stroke-width="1.5"/>`;
+  // right column counter
+  g += `<path d="M892 226 L1000 226 L1000 560 L904 560Z" fill="${c.truck2}" ${S2}/>`;
+  for (let y = 250; y < 560; y += 34) g += `<path d="M900 ${y} H1000" stroke="${c.face}" stroke-width="2"/>`;
+  g += `<path d="M880 230 L892 226 L904 560 L892 566Z" fill="${c.face}" ${S2}/>`;
+  // left column counter (under the window)
+  g += `<path d="M0 ${counterTopY(0) + 50} L160 ${counterTopY(160) + 50} L170 620 L0 620Z" fill="${c.truck2}" ${S2}/><path d="M160 ${counterTopY(160) + 50} L178 ${counterTopY(160) + 56} L188 620 L170 620Z" fill="${c.face}" ${S2}/>`;
+  // awning over the window
+  g += `<path d="M0 52 H540 V70 H0Z" fill="${c.truck}"/>`;
+  for (let x = 0; x < 540; x += 36) g += `<path d="M${x} 70 h36 v8 a18 10 0 0 1 -36 0Z" fill="${(x / 36) % 2 ? '#fff' : c.truck}" stroke="${INK}" stroke-width="2.5"/>`;
+  return `<svg viewBox="0 0 1000 620" preserveAspectRatio="none">${g}</svg>`;
+};
+
+// the slanted service counter is drawn above the queue so it hides the guests' legs
+export const serviceCounterSVG = (theme) => {
+  const c = THEME[theme];
+  const S2 = `stroke="${INK}" stroke-width="3" stroke-linejoin="round"`;
+  const t = (x) => counterTopY(x);
+  return `<svg viewBox="0 0 1000 620" preserveAspectRatio="none">
+    <path d="M0 ${t(0)} L560 ${t(560)} L560 ${t(560) + 24} L0 ${t(0) + 24}Z" fill="${c.top}" ${S2}/>
+    <path d="M0 ${t(0) + 24} L560 ${t(560) + 24} L560 ${t(560) + 50} L0 ${t(0) + 50}Z" fill="${c.truck}" ${S2}/>
+    <path d="M0 ${t(0) + 33} L560 ${t(560) + 33}" stroke="${c.truck2}" stroke-width="7"/>
+  </svg>`;
+};
+
+// front counter with the stovetop row, drawn over Mochi's legs; the truck's side panel below
+export const frontCounterSVG = (theme, name) => {
+  const c = THEME[theme];
+  const S2 = `stroke="${INK}" stroke-width="3" stroke-linejoin="round"`;
+  return `<svg viewBox="0 500 1000 120" preserveAspectRatio="none">
+    <path d="M172 506 L896 506 L900 532 L178 532Z" fill="${c.top}" ${S2}/>
+    <path d="M178 532 L900 532 L900 640 L178 640Z" fill="${c.truck}" ${S2}/>
+    <path d="M178 546 H900" stroke="${c.truck2}" stroke-width="9"/>
+    <circle cx="290" cy="626" r="30" fill="#6b5a70" ${S2}/><circle cx="290" cy="626" r="12" fill="#fff"/>
+    <circle cx="780" cy="626" r="30" fill="#6b5a70" ${S2}/><circle cx="780" cy="626" r="12" fill="#fff"/>
+    <text x="540" y="590" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="30" fill="#fff" stroke="${INK}" stroke-width="2.5" paint-order="stroke">Mochi's · ${name}</text>
+  </svg>`;
+};
