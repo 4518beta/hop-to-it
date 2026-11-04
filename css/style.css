@@ -433,3 +433,107 @@ body.portrait #rotate { display: block; }
 .rrow.new { border-color: var(--pink); background: #fff2f8; }
 .tslot { background: #fdf0f6; }
 .bubble { border-radius: 22px; }
+
+/* ---------------- food truck scene ---------------- */
+.street { position: absolute; left: 0; top: 52px; width: 300px; bottom: 0; overflow: hidden; }
+.street .sky { position: absolute; inset: 0; background: var(--street-sky); }
+.skyline-svg { position: absolute; left: -6px; top: 0; width: 316px; height: 240px; }
+.street .sidewalk { position: absolute; left: 0; right: 0; top: 230px; bottom: 0;
+  background: repeating-linear-gradient(100deg, transparent 0 46px, rgba(107,74,99,.10) 46px 49px), linear-gradient(var(--walk1), var(--walk2)); border-top: 3px solid var(--ink); }
+.street .sidewalk::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 16px; background: #fff; opacity: .7; }
+.lamp { position: absolute; left: 22px; top: 92px; width: 8px; height: 150px; background: var(--ink); border-radius: 4px; }
+.lamp::before { content: ""; position: absolute; left: -10px; top: -14px; width: 28px; height: 20px; border-radius: 14px 14px 6px 6px; background: #fff3b0; border: 3px solid var(--ink); }
+.theme-diner { --street-sky: linear-gradient(#bfe6f5, #eaf7ff); --walk1: #fff1f6; --walk2: #ffe3ee; --tw1: #fff3d6; --tw2: #ffe2ad; --tf1: #fffaf3; --tf2: #ffe3d6; --truck: #ff9cc0; --truck2: #fff0b3; }
+.theme-bakery { --street-sky: linear-gradient(#ffd6e5, #fff3e8); --walk1: #f6f0ff; --walk2: #ebe1ff; --tw1: #efe6ff; --tw2: #dccdfb; --tf1: #fffaf6; --tf2: #f1e8ff; --truck: #b9a2f5; --truck2: #fff6ee; }
+.theme-noodle { --street-sky: linear-gradient(#8f86d6, #c9b8ff); --walk1: #e6f6ef; --walk2: #d3efe4; --tw1: #dff6ee; --tw2: #bfe9da; --tf1: #fbfffd; --tf2: #e2f6ef; --truck: #6ccfb0; --truck2: #fff3b0; }
+
+.ftruck { position: absolute; left: 290px; right: 0; top: 52px; bottom: 0; }
+.t-wall { position: absolute; left: 0; right: 0; top: 0; height: 205px;
+  background: repeating-conic-gradient(var(--tw1) 0 25%, var(--tw2) 0 50%) 0 0 / 34px 34px; border-left: 4px solid var(--ink); }
+.t-wall .shelf { position: absolute; left: 50px; right: 10px; top: 92px; height: 12px; background: #e9c7ad; border: 3px solid var(--ink); border-radius: 6px; box-shadow: 0 6px 0 rgba(107,74,99,.12); }
+.t-wall .lights { position: absolute; left: 20px; right: 10px; top: 30px; height: 20px;
+  background: radial-gradient(circle at 12px 12px, #fff3b0 0 5px, transparent 6px) 0 0 / 46px 20px repeat-x; }
+.t-wall .lights::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-bottom: 2px solid var(--ink); border-radius: 0 0 50% 50% / 0 0 100% 100%; }
+.t-backcounter { position: absolute; left: 0; right: 0; top: 205px; height: 52px; background: #fffdfb; border-top: 4px solid var(--ink); border-bottom: 4px solid var(--ink); border-left: 4px solid var(--ink);
+  background-image: linear-gradient(var(--truck2) 0 12px, transparent 12px), repeating-linear-gradient(90deg, transparent 0 86px, rgba(107,74,99,.18) 86px 89px); }
+.t-floor { position: absolute; left: 0; right: 0; top: 257px; bottom: 0; border-left: 4px solid var(--ink);
+  background: repeating-conic-gradient(var(--tf1) 0 25%, var(--tf2) 0 50%) 0 0 / 46px 46px; }
+.t-hatch { position: absolute; left: -6px; top: 160px; width: 46px; height: 230px; background: #fffdfb; border: 4px solid var(--ink); border-radius: 12px;
+  box-shadow: inset 0 10px 0 var(--truck2); }
+.awning { position: absolute; left: -22px; right: 0; top: -2px; height: 40px;
+  background: repeating-linear-gradient(90deg, var(--truck) 0 34px, #fff 34px 68px); border-bottom: 4px solid var(--ink);
+  -webkit-mask: radial-gradient(circle at 17px 40px, transparent 13px, #000 14px) 0 0 / 34px 100% repeat-x; mask: radial-gradient(circle at 17px 40px, transparent 13px, #000 14px) 0 0 / 34px 100% repeat-x; }
+.t-front { position: absolute; left: 290px; right: 0; top: 470px; bottom: 0; z-index: 400; pointer-events: none;
+  background: var(--truck); border-top: 5px solid var(--ink); border-left: 4px solid var(--ink); }
+.t-front::before { content: ""; position: absolute; left: 0; right: 0; top: -40px; height: 40px; background: #fffdfb; border-top: 4px solid var(--ink); border-left: 4px solid var(--ink); margin-left: -4px; }
+.t-front .stripe { position: absolute; left: 0; right: 0; top: 18px; height: 16px; background: var(--truck2); border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink); }
+.truckname { position: absolute; left: 220px; top: 52px; font-weight: 800; font-size: 26px; color: #fff; -webkit-text-stroke: 2px var(--ink); paint-order: stroke; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.truckname .ic { width: 30px; height: 30px; }
+.wheel { position: absolute; bottom: -34px; width: 74px; height: 74px; border-radius: 50%; background: radial-gradient(circle, #fff 0 12px, #b9a7c2 13px 20px, #6b5a70 21px); border: 4px solid var(--ink); }
+.wheel.w1 { left: 70px; } .wheel.w2 { right: 70px; }
+
+.cust { top: 0; width: 100px; height: 150px; transform-origin: 0 0; }
+.cust-body { transform-origin: 50% 100%; }
+.seat-hit { position: absolute; margin: 0; }
+.bubble { position: absolute; transform: none; min-width: 66px; padding: 4px 6px 3px; }
+.bubble.hidden { transform: scale(0); }
+.bubble::after { left: 4px; bottom: 6px; transform: rotate(135deg); }
+.b-items .itm { width: 34px; height: 34px; }
+
+.kitchen .bin { z-index: 100; }
+.kitchen .station.row-back { z-index: 200; }
+.kitchen .hplate { z-index: 250; width: 66px; height: 40px; }
+.kitchen .bunny { z-index: 300; width: 86px; height: 132px; }
+.kitchen .station.row-front { z-index: 500; }
+.kitchen .trash { z-index: 500; width: 70px; height: 70px; }
+.held { top: 82px; }
+.held .itm { width: 26px; height: 26px; }
+.tray { left: 300px; bottom: 6px; z-index: 960; }
+.station.row-front .st-label { bottom: -8px; }
+.hint { top: 276px; left: 640px; max-width: 600px; }
+.bin-label { font-size: 10px; bottom: -8px; }
+
+/* fit + gesture fixes */
+html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
+#stage, #stage * { touch-action: none; }
+#stage .map-scroll, #stage .map-scroll * { touch-action: pan-x; }
+.fs-btn { position: fixed; right: 8px; bottom: 8px; z-index: 5; width: 36px; height: 36px; opacity: .85; border-radius: 12px; border: 3px solid var(--ink); background: #fff; font-size: 20px; line-height: 1; box-shadow: 0 3px 0 rgba(107,74,99,.3); }
+
+/* ---------------- road-trip map ---------------- */
+.overlay.map { display: block; }
+.map-scroll { position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.map-scroll::-webkit-scrollbar { display: none; }
+.map-world { position: relative; width: 3000px; height: 620px; }
+.map-svg { position: absolute; left: 0; top: 0; }
+.map-svg .road-edge { fill: none; stroke: #6b4a63; stroke-width: 46; stroke-linecap: round; }
+.map-svg .road { fill: none; stroke: #fffdfb; stroke-width: 38; stroke-linecap: round; }
+.map-svg .road-dash { fill: none; stroke: #ffc2d4; stroke-width: 5; stroke-dasharray: 14 16; stroke-linecap: round; }
+.map-world .node { width: 70px; height: 70px; z-index: 2; box-shadow: 0 5px 0 var(--ink); }
+.map-world .node .n { font-size: 20px; }
+.map-world .node .st i { font-size: 13px; }
+.map-world .node .ty { width: 24px; height: 24px; right: -8px; top: -8px; }
+.map-world .node .ty .ic { width: 14px; height: 14px; }
+.map-world .node.current { background: #ffe3ee; box-shadow: 0 5px 0 var(--ink), 0 0 0 6px rgba(255, 156, 192, .45); }
+.map-world .node.pop { animation: nodepop .5s ease-out; }
+@keyframes nodepop { 50% { transform: translate(-50%, -50%) scale(1.25); } }
+.map-mochi { position: absolute; width: 74px; height: 114px; transform: translate(-50%, -128%); z-index: 3; pointer-events: none; }
+.map-mochi .mm-body { width: 100%; height: 100%; animation: bob 2.2s ease-in-out infinite; transform-origin: 50% 100%; }
+.map-mochi.flip .mm-body { transform: scaleX(-1); }
+.map-mochi.hopping .mm-body { animation: none; }
+.map-mochi.landed .mm-body { animation: land .45s ease-out, bob 2.2s ease-in-out .45s infinite; }
+@keyframes land { 30% { transform: scale(1.15, .85); } 60% { transform: scale(.95, 1.08); } }
+.map-mochi svg { width: 100%; height: 100%; overflow: visible; }
+.city-banner { position: absolute; top: 72px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px;
+  background: #fffdfb; border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 5px 0 var(--ink); white-space: nowrap; z-index: 1; }
+.city-banner .cb-ic .ic { width: 46px; height: 46px; }
+.city-banner b { display: block; font-size: 24px; line-height: 1; }
+.city-banner span { font-size: 13px; color: var(--ink-soft); }
+.gate-sign { position: absolute; top: 470px; transform: translateX(-50%); background: #fff; border: 4px solid var(--ink); border-radius: 18px; padding: 4px 12px; text-align: center; z-index: 2; box-shadow: 0 4px 0 var(--ink); }
+.gate-sign .ic { width: 26px; height: 26px; }
+.gate-sign b { display: block; font-size: 18px; color: #f3a92a; -webkit-text-stroke: 1px var(--ink); }
+.gate-sign span { font-size: 11.5px; font-weight: 700; }
+.gate-sign.open { background: #e3f8f1; }
+.map-head { pointer-events: none; z-index: 10; }
+.map-head > * { pointer-events: auto; }
+.map-nav { z-index: 10; pointer-events: none; }
+.map-nav > * { pointer-events: auto; }

@@ -133,8 +133,12 @@ const faceFor = (a, p) => {
 export const customerSVG = (animal, shirtShift = 0) => {
   const p = PALETTES[animal] || PALETTES.cat;
   const hue = shirtShift ? `style="filter:hue-rotate(${shirtShift}deg)"` : '';
-  return `<svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
-    <path ${hue} d="M18 130 Q16 90 50 86 Q84 90 82 130 Z" fill="${p.shirt}" stroke="${INK}" stroke-width="2.6"/>
+  return `<svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="50" cy="146" rx="30" ry="4" fill="rgba(107,74,99,.18)"/>
+    <rect x="33" y="122" width="13" height="22" rx="6" fill="${p.fur}" stroke="${INK}" stroke-width="2.4"/>
+    <rect x="54" y="122" width="13" height="22" rx="6" fill="${p.fur}" stroke="${INK}" stroke-width="2.4"/>
+    <path ${hue} d="M20 128 Q16 90 50 86 Q84 90 80 128 Q50 134 20 128 Z" fill="${p.shirt}" stroke="${INK}" stroke-width="2.6"/>
+    <circle cx="22" cy="112" r="7" fill="${p.fur}" stroke="${INK}" stroke-width="2.4"/><circle cx="78" cy="112" r="7" fill="${p.fur}" stroke="${INK}" stroke-width="2.4"/>
     ${earsFor(animal, p)}
     <ellipse cx="50" cy="52" rx="33" ry="${animal === 'frog' ? 27 : 31}" fill="${p.fur}" stroke="${INK}" stroke-width="2.8"/>
     ${faceFor(animal, p)}
@@ -188,4 +192,26 @@ export const itemHTML = (key, opts = {}) => {
   if (opts.small) cls.push('small');
   const kawaii = it.p && !opts.burned && !opts.ghost && opts.face !== false;
   return `<span class="${cls.join(' ')}" title="${it.n}"><span class="e">${ICONS[it.i] || ''}</span>${it.top ? `<span class="top">${ICONS[it.top] || ''}</span>` : ''}${kawaii ? KFACE : ''}${opts.burned ? `<span class="smoke">${ICONS['dashing-away']}</span>` : ''}</span>`;
+};
+
+// ---------------------------------------------------------------------------
+// City skylines seen from the street behind the queue.
+export const skylineSVG = (theme) => {
+  const pal = {
+    diner: ['#ffd6e5', '#cfe8f7', '#fff0b3', '#e3d6ff', '#c6ecdf'],
+    bakery: ['#e3d6ff', '#ffd6e5', '#fff0b3', '#ffe3c9', '#d6f0ff'],
+    noodle: ['#b9b0f0', '#d9c8ff', '#9fd8c7', '#ffd6e5', '#c6d8ff'],
+  }[theme];
+  const win = theme === 'noodle' ? '#fff3b0' : '#ffffff';
+  const blds = [[0, 70, 52], [46, 120, 40], [80, 90, 50], [124, 140, 44], [162, 100, 56], [210, 130, 42], [246, 80, 60]];
+  let out = '';
+  blds.forEach(([x, h, w], i) => {
+    const y = 300 - h;
+    out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${pal[i % pal.length]}" stroke="${INK}" stroke-width="2.4"/>`;
+    for (let wy = y + 12; wy < 290; wy += 18) for (let wx = x + 8; wx < x + w - 10; wx += 14) out += `<rect x="${wx}" y="${wy}" width="7" height="9" rx="2" fill="${win}" opacity=".9"/>`;
+  });
+  if (theme === 'bakery') out += `<path d="M150 130 L162 40 L174 130 Z M154 100 h16" fill="#fff6ee" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`;
+  if (theme === 'noodle') out += `<path d="M170 140 L180 50 L190 140 Z M172 110 h16 M176 80 h8" fill="#ffb3c8" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/><circle cx="60" cy="90" r="18" fill="#fff6cf"/>`;
+  if (theme === 'diner') out += `<circle cx="250" cy="70" r="20" fill="#fff0b3"/><path d="M20 60 q10 -12 22 0 q10 -10 20 2 q-20 8 -42 -2Z" fill="#fff"/>`;
+  return `<svg class="skyline-svg" viewBox="0 0 310 300" preserveAspectRatio="xMidYMax slice">${out}</svg>`;
 };
