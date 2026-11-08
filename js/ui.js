@@ -299,6 +299,7 @@ export class UI {
   }
 
   startLevel(i) {
+    this.pendingHop = null;
     this.endGame();
     this.hide();
     this.lastLevel = i;

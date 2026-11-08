@@ -263,9 +263,9 @@ export class Game {
     this.updateBunny(dt);
 
     // end conditions
+    if (lv.type === 'lose' && this.lost >= lv.walkouts) this.finish(true);
     if (lv.type === 'timer' && this.timeLeft <= 0) this.finish(false);
     if (lv.type !== 'timer' && this.spawned >= lv.limit && this.customers.length === 0) this.finish(false);
-    if (lv.type === 'lose' && this.lost >= lv.walkouts) this.finish(true);
 
     this.updateHint();
   }
@@ -353,6 +353,7 @@ export class Game {
     c.bubble.remove();
     if (c.seat.cust === c) c.seat.cust = null;
     this.queue = this.queue.filter((q) => q.ref !== c.seat || q.cust !== c);
+    if (this.current && this.current.ref === c.seat && this.current.cust === c) this.current = null;
     this.updateMarkers();
   }
 
@@ -572,7 +573,12 @@ export class Game {
 
   serve(seat, cust) {
     const c = seat.cust;
-    if (!c || c !== cust || c.state !== 'wait') return this.fail('');
+    if (c && c === cust && c.state === 'enter') {
+      c.x = seat.x;
+      c.state = 'wait';
+      c.bubble.classList.remove('hidden');
+    }
+    if (!c || c !== cust || c.state !== 'wait') return;
     const b = this.bunny;
     let any = false;
     for (const o of c.order) {
@@ -808,7 +814,7 @@ export class Game {
       burn: 'Finished food burns if you leave it too long. Watch for the red ring!',
       plate: 'Holding plates (left) keep finished food safe while you work.',
       timer: 'Timed shift! Serve as many guests as you can before the clock runs out.',
-      lose: 'Careful: if 3 guests leave unhappy, the shift ends early.',
+      lose: `Careful: if ${this.lv.walkouts} guests leave unhappy, the shift ends early.`,
       multi: 'Some guests order two dishes. Serve both to get paid.',
       servings: 'Coffee makers brew 3 cups at once. Tap again for each cup.',
     }[tut];

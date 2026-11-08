@@ -36,9 +36,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 #game { position: absolute; inset: 0; }
 #rotate {
-  display: none; position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-  background: var(--cream); color: var(--ink); padding: 8px 16px; border-radius: 999px;
-  font-weight: 700; font-size: 15px; white-space: nowrap; box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
+  display: none; position: fixed; left: 16px; right: 60px; bottom: 10px; text-align: center;
+  background: var(--cream); color: var(--ink); padding: 8px 14px; border-radius: 18px;
+  font-weight: 700; font-size: 14px; line-height: 1.25; box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
 }
 body.portrait #rotate { display: block; }
 
@@ -555,7 +555,7 @@ html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
 .station.row-front .st-label { bottom: -2px; }
 .station.row-left .st-label, .station.row-right .st-label { bottom: -10px; }
 .tray { left: auto; right: 8px; bottom: 6px; }
-.hint { top: 60px; left: 770px; max-width: 420px; font-size: 14px; }
+.hint { top: auto; bottom: 14px; left: 520px; max-width: 520px; font-size: 15px; }
 .bubble { min-width: 58px; }
 .b-items .itm { width: 30px; height: 30px; }
 .b-hearts { font-size: 11px; }
