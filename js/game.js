@@ -497,20 +497,15 @@ export class Game {
     this.renderHands();
   }
 
-  useStation(s) {
+  // Could something in Mochi's paws go into this station, given what it already holds?
+  canLoad(s, contents) {
+    const steps = this.stepsFor(s.type).filter((st) => isSub(contents, st.in));
+    return this.bunny.hands.some((h) => !h.burned && steps.some((st) => isSub([...contents, h.k], st.in)));
+  }
+
+  // Put ingredients from the paws into the station; starts cooking when a recipe is complete.
+  loadStation(s) {
     const b = this.bunny;
-    const room = b.hands.length < this.mods.carry;
-    if (s.state === 'done' || s.state === 'burned') {
-      if (!room) return this.fail('Paws are full!');
-      const burned = s.state === 'burned';
-      b.hands.push({ k: s.product, burned });
-      s.servings--;
-      if (burned || s.servings <= 0) this.resetStation(s);
-      else { s.dirty = true; s.age = 0; }
-      sfx.pick();
-      return;
-    }
-    if (s.state === 'cooking') return this.fail('Still cooking...');
     const usable = b.hands.filter((h) => !h.burned);
     const steps = this.stepsFor(s.type).filter((st) => isSub(s.contents, st.in));
     // Prefer a recipe that can be completed right now, ideally one a guest is waiting for.
@@ -528,7 +523,7 @@ export class Game {
       });
       s.contents.push(...need);
       this.startCook(s, st);
-      return;
+      return true;
     }
     let added = false;
     for (const h of [...usable]) {
@@ -540,7 +535,30 @@ export class Game {
         added = true;
       }
     }
-    if (added) { s.dirty = true; sfx.place(); return; }
+    if (added) { s.dirty = true; sfx.place(); }
+    return added;
+  }
+
+  useStation(s) {
+    const b = this.bunny;
+    const room = b.hands.length < this.mods.carry;
+    if (s.state === 'done' || s.state === 'burned') {
+      const burned = s.state === 'burned';
+      const empties = burned || s.servings <= 1;
+      // Like the classic games: picking up a finished dish while holding its ingredients swaps them in.
+      const swap = empties && this.canLoad(s, []);
+      if (!room && !swap) return this.fail('Paws are full!');
+      const picked = { k: s.product, burned };
+      s.servings--;
+      if (empties) this.resetStation(s);
+      else { s.dirty = true; s.age = 0; }
+      if (swap) this.loadStation(s);
+      b.hands.push(picked);
+      sfx.pick();
+      return;
+    }
+    if (s.state === 'cooking') return this.fail('Still cooking...');
+    if (this.loadStation(s)) return;
     if (!b.hands.length && s.contents.length) {
       // take back loose ingredients
       const k = s.contents.pop();
