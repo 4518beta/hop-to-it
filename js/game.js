@@ -26,6 +26,10 @@ const BUNNY_W = 100;
 const BUNNY_H = 154;
 const depthScale = (y) => 0.8 + 0.2 * Math.min(1, Math.max(0, (y - BACK_STAND) / (FRONT_STAND - BACK_STAND)));
 const MAX_QUEUE = 8;
+// Motion feel: physical things accelerate and settle instead of moving at a flat speed.
+const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ACCEL = 2600; // px/s² for Mochi speeding up and braking
+const easeOut = (k) => 1 - (1 - k) ** 3;
 const RUSH_NEED = 30;
 const RUSH_TIME = 15;
 
@@ -320,8 +324,10 @@ export class Game {
     c.t += dt;
     const target = c.seat.x;
     if (c.state === 'enter') {
-      c.x += 520 * dt;
-      if (c.x >= target) {
+      c.from ??= c.x;
+      c.k = Math.min(1, (c.k || 0) + dt / 0.75);
+      c.x = c.from + (target - c.from) * easeOut(c.k);
+      if (c.k >= 1) {
         c.x = target;
         c.state = 'wait';
         c.bubble.classList.remove('hidden');
@@ -342,7 +348,8 @@ export class Game {
     } else if (c.state === 'happy') {
       if (c.t > 0.9) { c.state = 'leave'; this.release(c); }
     } else if (c.state === 'leave') {
-      c.x -= 560 * dt;
+      c.vx = Math.min(620, (c.vx || 80) + 1400 * dt);
+      c.x -= c.vx * dt;
       if (c.x < -90) {
         c.el.remove();
         this.customers.splice(this.customers.indexOf(c), 1);
@@ -446,16 +453,21 @@ export class Game {
     const dx = p.x - b.x;
     const dy = p.y - b.y;
     const d = Math.hypot(dx, dy);
-    const step = this.mods.speed * dt;
-    if (d > step) {
+    const vmax = this.mods.speed * 1.12;
+    const brake = Math.sqrt(2 * ACCEL * d); // fastest speed that can still stop on the spot
+    b.v = Math.min(vmax, brake, (b.v || 0) + ACCEL * dt);
+    const step = Math.max(b.v * dt, 40 * dt);
+    if (d > step && d > 1.5) {
       b.x += (dx / d) * step;
       b.y += (dy / d) * step;
       b.moving = true;
       if (Math.abs(dx) > 2) b.face = dx > 0 ? 1 : -1;
       return;
     }
+    if (b.moving) this.land();
     b.x = p.x;
     b.y = p.y;
+    b.v = 0;
     b.moving = false;
     cur.wait -= dt;
     if (cur.wait > 0) return;
@@ -463,6 +475,15 @@ export class Game {
     this.current = null;
     this.perform(cur);
     this.updateMarkers();
+  }
+
+  // One-shot squash and stretch when Mochi lands at a spot.
+  land() {
+    if (REDUCED) return;
+    const e = this.bunny.el;
+    e.classList.remove('land');
+    void e.offsetWidth;
+    e.classList.add('land');
   }
 
   perform({ ref, cust }) {
@@ -677,7 +698,7 @@ export class Game {
   render() {
     const b = this.bunny;
     if (b.moving) b.hop += 0.016 * 16;
-    const hopY = b.moving ? -Math.abs(Math.sin(b.hop)) * 12 : 0;
+    const hopY = b.moving && !REDUCED ? -Math.abs(Math.sin(b.hop)) * 12 * Math.min(1, (b.v || 0) / 260) : 0;
     if (b.moving && Math.sin(b.hop) * Math.sin(b.hop - 0.25) < 0) sfx.hop();
     const sc = depthScale(b.y);
     const tf = `translate(${(b.x - (BUNNY_W * sc) / 2).toFixed(1)}px, ${(b.y - BUNNY_H * sc + hopY).toFixed(1)}px) scale(${sc.toFixed(3)})`;
