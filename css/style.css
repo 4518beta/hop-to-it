@@ -582,3 +582,43 @@ html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
 .kitchen .bunny-svg { will-change: transform; transform-origin: 50% 100%; }
 .kitchen .bunny.land .bunny-svg { animation: land .32s cubic-bezier(0.2, 0, 0, 1); }
 @media (prefers-reduced-motion: reduce) { .kitchen .bunny.land .bunny-svg { animation: none; } }
+
+/* ---- Kitchen Shop ---- */
+.shop-panel { max-height: 600px; display: flex; flex-direction: column; }
+.shop-panel .shop { overflow-y: auto; touch-action: pan-y; padding: 4px; max-height: 380px; }
+.shop-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 8px; }
+.tabs { display: flex; gap: 6px; }
+.tab { display: flex; align-items: center; gap: 5px; font: inherit; font-weight: 800; font-size: 15px; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 3px 12px; box-shadow: 0 3px 0 rgba(107,74,99,.25); transition: scale .15s var(--ease), background-color .15s; }
+.tab .ic { width: 20px; height: 20px; }
+.tab.on { background: var(--pink); color: #fff; }
+.tab:active { scale: .96; }
+.up.app .app-art { position: relative; width: 54px; height: 54px; flex: none; }
+.up.app .app-art svg { width: 100%; height: 100%; }
+.up.app.locked { opacity: .6; }
+.up.app.locked .app-art svg { filter: grayscale(1) opacity(.5); }
+.up.app.locked .app-art > .ic { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 26px; height: 26px; }
+.up.tier-1 { border-color: #ffc2d4; background: #fff8fb; }
+.up.tier-2 { border-color: var(--gold); background: #fffbea; }
+.up-txt em { font-style: normal; font-weight: 700; color: var(--ink); }
+.up.bought { animation: bought .5s var(--ease); }
+@keyframes bought { 40% { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(255, 156, 192, .45); } }
+.tier-badge { position: absolute; left: -6px; top: -8px; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); display: grid; place-items: center; z-index: 4; pointer-events: none; }
+.tier-badge .ic { width: 17px; height: 17px; }
+.btn.has-new { position: relative; }
+.btn.has-new::after { content: ""; position: absolute; right: -5px; top: -5px; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid #fff; }
+/* upgraded stations in the kitchen */
+.station.tier-1 .st-label { background: #ffe3ee; }
+.station.tier-2 .st-label { background: #fff0b3; }
+.station.tier-2 .st-art svg { filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 6px rgba(255, 196, 61, .75)); }
+/* Sweet Jar helper */
+.jar { position: absolute; width: 54px; height: 58px; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer; }
+.jar-art { position: absolute; inset: 6px 8px 4px; border-radius: 14px 14px 18px 18px; background: rgba(255,255,255,.7); border: 3px solid var(--ink); display: grid; place-items: center; }
+.jar-art .ic { width: 30px; height: 30px; }
+.jar-pop { position: absolute; left: 50%; top: -16px; translate: -50% 0; }
+.jar-pop .ic { width: 26px; height: 26px; }
+.jar-n { position: absolute; right: -6px; top: -4px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--pink); color: #fff; border: 2px solid var(--ink); font-size: 13px; line-height: 18px; text-align: center; }
+.jar.empty { opacity: .55; }
+.jar.empty .jar-pop { display: none; }
+.jar .st-label { bottom: -14px; }
+.station .tier-badge { top: 34%; left: -8px; width: 24px; height: 24px; }
+.station.row-front .tier-badge { top: 46%; }

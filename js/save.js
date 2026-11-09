@@ -1,4 +1,5 @@
 // Progress is stored on this device only. No accounts, no servers.
+import { RETIRED_UPGRADES } from './data.js';
 const KEY = 'hop-to-it-v1';
 
 const fresh = () => ({
@@ -13,7 +14,14 @@ export const load = () => {
     if (!raw) return fresh();
     const d = JSON.parse(raw);
     const f = fresh();
-    return { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } };
+    const out = { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) }, upgrades: { ...(d.upgrades || {}) } };
+    // Refund upgrades that were replaced by per-appliance models.
+    Object.entries(RETIRED_UPGRADES).forEach(([id, costs]) => {
+      const lvl = out.upgrades[id] || 0;
+      if (lvl) out.wallet += costs.slice(0, lvl).reduce((a, b) => a + b, 0);
+      delete out.upgrades[id];
+    });
+    return out;
   } catch {
     return fresh();
   }
@@ -30,3 +38,4 @@ export const reset = () => {
 
 export const totalStars = (save) => Object.values(save.stars).reduce((a, b) => a + b, 0);
 export const upg = (save, id) => save.upgrades[id] || 0;
+export const tier = (save, type) => save.upgrades[`app_${type}`] || 0;

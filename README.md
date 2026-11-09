@@ -8,6 +8,10 @@ burns, and serve hungry animal guests before they run out of patience.
 **No lives. No energy timers. No ads. No purchases.** Every upgrade is bought with coins you
 earn by playing.
 
+In the Kitchen Shop each appliance has two better models that cook faster (the top model also
+burns slower, and brewers pour an extra cup). Helpers like the Sweet Jar (free lollipops that fill
+a guest's hearts) and Mochi's gear round it out.
+
 ## How to play
 
 - **Tap** a basket, station, plate, trash can or guest. Mochi hops over and does it.

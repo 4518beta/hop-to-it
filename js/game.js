@@ -1,8 +1,8 @@
 // Hop to It! - core gameplay engine (MIT)
-import { ITEMS, STATIONS, ANIMALS, WORLDS, chainTime } from './data.js';
+import { ITEMS, STATIONS, ANIMALS, WORLDS, chainTime, TIER_BONUS, JAR_CUPS, APPLIANCES } from './data.js';
 import * as art from './art.js';
 import { sfx } from './audio.js';
-import { upg } from './save.js';
+import { upg, tier } from './save.js';
 
 // 3/4 kitchen layout (stage is 1000 x 620). Arrangement follows the classic layout of the
 // genre: diagonal pickup counter upper-left, U-shaped counters, stoves along the front.
@@ -63,8 +63,7 @@ export class Game {
     const relaxed = save.settings.relaxed;
     this.mods = {
       speed: 440 * (1 + 0.15 * upg(save, 'paws')),
-      cook: 0.88 ** upg(save, 'stove'),
-      burn: (1 + 0.3 * upg(save, 'burn')) * (relaxed ? 1.5 : 1),
+      burn: relaxed ? 1.5 : 1,
       carry: 2 + upg(save, 'tray'),
       patience: (1 + 0.1 * upg(save, 'cushion')) * (relaxed ? 1.45 : 1),
     };
@@ -131,8 +130,10 @@ export class Game {
       zones[z].push(t);
     });
     this.stations = [];
+    const hasJar = upg(this.save, 'jar') > 0;
     Object.entries(zones).forEach(([zn, types]) => {
-      const Z = ZONES[zn];
+      // leave room for the Sweet Jar at the left end of the back counter
+      const Z = zn === 'back' && hasJar && types.length >= 5 ? { ...ZONES.back, cx: 806, dx: 84 } : ZONES[zn];
       types.forEach((type, i) => {
         const off = i - (types.length - 1) / 2;
         const x = Z.cx + off * Z.dx;
@@ -140,11 +141,14 @@ export class Game {
         const s = {
           kind: 'station', type, row: zn, x, y, sx: Z.stand(x, y)[0], sy: Z.stand(x, y)[1],
           contents: [], state: 'idle', t: 0, dur: 0, product: null, servings: 0, age: 0, burnT: 0, step: null, dirty: true,
+          tier: tier(this.save, type),
         };
         s.el = el(`station row-${zn}`, `<div class="st-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[type]}</svg></div>
           <div class="st-items"></div>
           <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="rbg"/><circle cx="20" cy="20" r="16" class="rfg"/></svg>
-          <div class="st-label">${STATIONS[type].n}</div><div class="qb"></div>`, this.kitchen);
+          <div class="st-label">${s.tier ? APPLIANCES[type][s.tier].n : STATIONS[type].n}</div><div class="qb"></div>
+          ${s.tier ? `<div class="tier-badge">${art.ic(s.tier === 2 ? 'crown' : 'sparkles')}</div>` : ''}`, this.kitchen);
+        if (s.tier) s.el.classList.add(`tier-${s.tier}`);
         Object.assign(s.el.style, { left: `${x}px`, top: `${y}px`, width: `${Z.size}px`, height: `${Z.size}px`, zIndex: zn === 'front' ? 560 : Math.round(y + Z.size / 2) });
         s.itemsEl = s.el.querySelector('.st-items');
         s.ring = s.el.querySelector('.ring');
@@ -186,6 +190,16 @@ export class Game {
     this.trash.el = el('trash', `${art.trashSVG}<div class="qb"></div><div class="st-label">Trash</div>`, this.kitchen);
     Object.assign(this.trash.el.style, { left: `${this.trash.x}px`, top: `${this.trash.y}px`, zIndex: 505 });
     this.trash.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(this.trash); });
+
+    // Sweet Jar helper: free lollipops that fill a guest's hearts.
+    const jarLvl = upg(this.save, 'jar');
+    if (jarLvl) {
+      this.jar = { kind: 'jar', x: 568, y: 176, sx: 560, sy: BACK_STAND, cups: JAR_CUPS[jarLvl] };
+      this.jar.el = el('jar', `<div class="jar-art">${art.ic('candy')}</div><div class="jar-pop">${art.ic('lollipop')}</div><b class="jar-n"></b><div class="st-label">Sweet Jar</div><div class="qb"></div>`, this.kitchen);
+      Object.assign(this.jar.el.style, { left: `${this.jar.x}px`, top: `${this.jar.y}px`, zIndex: 200 });
+      this.jar.el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.enqueue(this.jar); });
+      this.renderJar();
+    }
 
     // Mochi (scaled by depth like the classic games: 80% at the back, 100% at the front)
     this.bunny = { x: 600, y: 410, hands: [], face: 1, mood: '', moodT: 0, hop: 0 };
@@ -380,10 +394,10 @@ export class Game {
       if (s.t >= s.dur) {
         s.state = 'done';
         s.product = s.step.out;
-        s.servings = s.step.servings;
+        s.servings = s.step.servings + (s.step.servings > 1 ? TIER_BONUS[s.tier].serv : 0);
         s.contents = [];
         s.age = 0;
-        s.burnT = s.step.burn ? s.step.burn * this.mods.burn : 0;
+        s.burnT = s.step.burn ? s.step.burn * this.mods.burn * TIER_BONUS[s.tier].burn : 0;
         s.dirty = true;
         sfx.done();
       }
@@ -410,7 +424,7 @@ export class Game {
     s.step = step;
     s.state = 'cooking';
     s.t = 0;
-    s.dur = Math.max(0.3, step.t * this.mods.cook);
+    s.dur = Math.max(0.3, step.t / TIER_BONUS[s.tier].speed);
     s.dirty = true;
     sfx.start();
   }
@@ -496,6 +510,14 @@ export class Game {
         sfx.pick();
         break;
       case 'station': this.useStation(ref); break;
+      case 'jar':
+        if (ref.cups <= 0) return this.fail('The jar is empty for this shift.');
+        if (!room) return this.fail('Paws are full!');
+        b.hands.push({ k: 'candy' });
+        ref.cups--;
+        this.renderJar();
+        sfx.pick();
+        break;
       case 'plate':
         if (ref.item && room) {
           b.hands.push(ref.item);
@@ -619,7 +641,20 @@ export class Game {
         any = true;
       }
     }
-    if (!any) return this.fail(b.hands.some((h) => h.burned) ? 'Nobody wants burnt food!' : "That's not what they ordered.");
+    if (!any) {
+      // A free lollipop fills the guest's hearts back up.
+      const treat = b.hands.find((h) => ITEMS[h.k].treat);
+      if (treat) {
+        b.hands.splice(b.hands.indexOf(treat), 1);
+        this.marked.delete(treat);
+        c.patience = c.max;
+        c.imp = null;
+        sfx.serve();
+        this.popText(seat.x + 30, seat.y - 150 * seat.scale + 20, 'Yum! ♥♥♥♥♥', 'streak');
+        return;
+      }
+      return this.fail(b.hands.some((h) => h.burned) ? 'Nobody wants burnt food!' : "That's not what they ordered.");
+    }
     this.renderOrder(c);
     if (c.order.every((o) => o.done)) {
       const hearts = Math.max(1, Math.ceil(c.patience / c.heartSec));
@@ -756,6 +791,11 @@ export class Game {
     this.updateHud();
   }
 
+  renderJar() {
+    this.jar.el.querySelector('.jar-n').textContent = this.jar.cups;
+    this.jar.el.classList.toggle('empty', this.jar.cups <= 0);
+  }
+
   renderHands() {
     const b = this.bunny;
     this.heldEl.innerHTML = b.hands.map((h) => art.itemHTML(h.k, { burned: h.burned, small: true })).join('');
@@ -772,7 +812,7 @@ export class Game {
 
   updateMarkers() {
     const counts = new Map();
-    const all = [...this.stations, ...this.bins, ...this.plates, this.trash];
+    const all = [...this.stations, ...this.bins, ...this.plates, this.trash, ...(this.jar ? [this.jar] : [])];
     all.forEach((r) => counts.set(r, []));
     this.seats.forEach((s) => counts.set(s, []));
     this.queue.forEach((q, i) => counts.get(q.ref)?.push(i + 1));

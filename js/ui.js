@@ -1,5 +1,5 @@
 // Menus and screens for Hop to It! (MIT)
-import { ITEMS, STATIONS, LEVELS, WORLDS, UPGRADES, chainFor } from './data.js';
+import { ITEMS, STATIONS, LEVELS, WORLDS, APPLIANCES, HELPERS, GEAR, TIER_BONUS, chainFor } from './data.js';
 import * as art from './art.js';
 import { sfx, setSound } from './audio.js';
 import { store, reset, totalStars, upg } from './save.js';
@@ -53,6 +53,7 @@ export class UI {
       next: () => this.preLevel(+arg),
       shop: () => this.shop(arg),
       buy: () => this.buy(arg),
+      shoptab: () => this.shop(undefined, arg),
       settings: () => this.settings(arg),
       toggle: () => this.toggle(arg),
       reset: () => this.confirmReset(),
@@ -208,7 +209,7 @@ export class UI {
         <div class="map-title"><h2>Mochi's road trip</h2><p>Swipe the map, tap a stop to cook</p></div>
         <div class="wallet">${art.ic('coin')} ${this.save.wallet} · ★ ${stars}</div>
       </div>
-      <div class="map-nav"><span></span><button class="btn small" data-act="shop" data-arg="map">${art.ic('shopping-cart')} Upgrades</button><span></span></div>`, 'full map');
+      <div class="map-nav"><span></span><button class="btn small ${this.canBuySomething() ? 'has-new' : ''}" data-act="shop" data-arg="map">${art.ic('shopping-cart')} Kitchen Shop</button><span></span></div>`, 'full map');
     const scroller = this.overlay.querySelector('.map-scroll');
     const focusX = worldIdx !== undefined && !hop && worldIdx !== LEVELS[cur].world ? worldIdx * 1000 + 500 : sp.x;
     scroller.scrollLeft = Math.max(0, focusX - 500);
@@ -357,32 +358,88 @@ export class UI {
   }
 
   // -------------------------------------------------------------------------
-  shop(from) {
+  // Station types Mochi has already cooked with (or can cook with now).
+  seenStations() {
+    const seen = new Map();
+    LEVELS.forEach((lv, i) => {
+      if (!(this.cityOpen(lv.world) && this.levelUnlocked(i))) return;
+      lv.stationTypes.forEach((t) => { if (!seen.has(t)) seen.set(t, i); });
+    });
+    return seen;
+  }
+
+  shopItems() {
+    const seen = this.seenStations();
+    const apps = Object.keys(APPLIANCES).map((t) => {
+      const firstLv = LEVELS.find((l) => l.stationTypes.includes(t));
+      return { kind: 'app', id: `app_${t}`, type: t, lvl: this.save.upgrades[`app_${t}`] || 0, open: seen.has(t), unlockAt: firstLv?.id };
+    });
+    const list = (arr, kind) => arr.map((u) => ({ kind, id: u.id, u, lvl: upg(this.save, u.id), open: true }));
+    return { apps, helpers: list(HELPERS, 'helper'), gear: list(GEAR, 'gear') };
+  }
+
+  // Something new the wallet can pay for (shows a dot on the Upgrades button).
+  canBuySomething() {
+    const { apps, helpers, gear } = this.shopItems();
+    return [...apps, ...helpers, ...gear].some((it) => {
+      if (!it.open) return false;
+      const c = this.costOf(it);
+      return c !== undefined && c <= this.save.wallet;
+    });
+  }
+
+  costOf(it) {
+    if (it.kind === 'app') return APPLIANCES[it.type][it.lvl + 1]?.cost;
+    return it.u.tiers[it.lvl]?.cost;
+  }
+
+  shop(from, tab) {
     this.shopFrom = from || this.shopFrom || 'title';
-    this.show(`<div class="panel wide"><h2>${art.ic('shopping-cart')} Upgrades</h2>
-      <p class="small">Paid for with coins you earn in the kitchen. Nothing here costs real money.</p>
-      <div class="wallet center">${art.ic('coin')} ${this.save.wallet}</div>
-      <div class="shop">${UPGRADES.map((u) => {
-        const lvl = upg(this.save, u.id);
-        const maxed = lvl >= u.costs.length;
-        const cost = u.costs[lvl];
-        return `<div class="up"><div class="up-icon">${art.ic(u.icon)}</div><div class="up-txt"><b>${u.n}</b><span>${u.d}</span>
-          <span class="pips">${u.costs.map((_, k) => `<i class="${k < lvl ? 'on' : ''}"></i>`).join('')}</span></div>
-          ${maxed ? '<span class="maxed">MAX</span>' : `<button class="btn small ${this.save.wallet < cost ? 'disabled' : ''}" data-act="buy" data-arg="${u.id}">${art.ic('coin')} ${cost}</button>`}</div>`;
-      }).join('')}</div>
+    this.shopTab = tab || this.shopTab || 'apps';
+    const { apps, helpers, gear } = this.shopItems();
+    const pips = (n, on) => `<span class="pips">${Array.from({ length: n }, (_, k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('')}</span>`;
+    const buyBtn = (it) => {
+      const cost = this.costOf(it);
+      if (cost === undefined) return '<span class="maxed">MAX</span>';
+      return `<button class="btn small ${this.save.wallet < cost ? 'disabled' : ''}" data-act="buy" data-arg="${it.id}">${art.ic('coin')} ${cost}</button>`;
+    };
+    const appCard = (it) => {
+      const tiers = APPLIANCES[it.type];
+      if (!it.open) {
+        return `<div class="up app locked" data-id="${it.id}"><div class="up-icon app-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[it.type]}</svg>${art.ic('locked')}</div>
+          <div class="up-txt"><b>${tiers[0].n}</b><span>Shows up in ${it.unlockAt}</span></div></div>`;
+      }
+      const nxt = tiers[it.lvl + 1];
+      return `<div class="up app tier-${it.lvl}" data-id="${it.id}"><div class="up-icon app-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[it.type]}</svg>${it.lvl ? `<span class="tier-badge">${art.ic(it.lvl === 2 ? 'crown' : 'sparkles')}</span>` : ''}</div>
+        <div class="up-txt"><b>${tiers[it.lvl].n}</b><span>${nxt ? `Next: <b>${nxt.n}</b>. ${nxt.d}` : `Top model! Cooks ${Math.round((TIER_BONUS[2].speed - 1) * 100)}% faster.`}</span>${pips(3, it.lvl + 1)}</div>
+        ${buyBtn(it)}</div>`;
+    };
+    const card = (it) => {
+      const t = it.u.tiers;
+      const nxt = t[it.lvl];
+      return `<div class="up" data-id="${it.id}"><div class="up-icon">${art.ic(it.u.icon)}</div><div class="up-txt"><b>${it.u.n}</b><span>${it.u.d}${nxt ? ` <em>Next: ${nxt.d}.</em>` : ' <em>All done!</em>'}</span>${pips(t.length, it.lvl)}</div>${buyBtn(it)}</div>`;
+    };
+    const tabs = [['apps', 'Appliances', 'cooking'], ['helpers', 'Helpers', 'lollipop'], ['gear', "Mochi's gear", 'paw-prints']];
+    const body = this.shopTab === 'apps' ? apps.map(appCard).join('') : (this.shopTab === 'helpers' ? helpers : gear).map(card).join('');
+    this.show(`<div class="panel wide shop-panel"><h2>${art.ic('shopping-cart')} Kitchen Shop</h2>
+      <p class="small">New appliances cook faster. Paid with coins you earn in the kitchen, never real money.</p>
+      <div class="shop-top"><div class="tabs">${tabs.map(([k, n, ic]) => `<button class="tab ${k === this.shopTab ? 'on' : ''}" data-act="shoptab" data-arg="${k}">${art.ic(ic)} ${n}</button>`).join('')}</div>
+        <div class="wallet">${art.ic('coin')} ${this.save.wallet}</div></div>
+      <div class="shop">${body}</div>
       <button class="btn" data-act="${this.shopFrom === 'map' ? 'map' : 'title'}">Back</button></div>`);
   }
 
   buy(id) {
-    const u = UPGRADES.find((x) => x.id === id);
-    const lvl = upg(this.save, id);
-    const cost = u.costs[lvl];
+    const { apps, helpers, gear } = this.shopItems();
+    const it = [...apps, ...helpers, ...gear].find((x) => x.id === id);
+    const cost = it && it.open ? this.costOf(it) : undefined;
     if (cost === undefined || this.save.wallet < cost) { sfx.nope(); return; }
     this.save.wallet -= cost;
-    this.save.upgrades[id] = lvl + 1;
+    this.save.upgrades[id] = it.lvl + 1;
     this.persist();
     sfx.serve();
     this.shop();
+    this.overlay.querySelector(`.up[data-id="${id}"]`)?.classList.add('bought');
   }
 
   settings(from) {

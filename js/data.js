@@ -65,6 +65,7 @@ export const ITEMS = {
   cookies: { n: 'Choco Cookies', i: 'cookie', p: 60 },
   muffin: { n: 'Berry Muffin', i: 'cupcake', p: 70 },
   cocoa: { n: 'Choco Milk Tea', i: 'bubble-tea', p: 45 },
+  candy: { n: 'Lollipop', i: 'lollipop', p: 0, treat: true },
   carrot_cake: { n: 'Carrot Cake', i: 'shortcake', top: 'carrot', p: 130 },
   apple_pie: { n: 'Apple Pie', i: 'pie', p: 140 },
 
@@ -258,13 +259,50 @@ export const LEVELS = RAW_LEVELS.map((lv, i) => {
   };
 });
 
-export const UPGRADES = [
-  { id: 'paws', n: 'Speedy Paws', d: 'Mochi hops between stations faster.', icon: 'paw-prints', costs: [120, 350, 800] },
-  { id: 'stove', n: 'Hotter Stoves', d: 'Every station cooks 12% faster per level.', icon: 'fire', costs: [150, 450, 1000] },
-  { id: 'burn', n: 'Gentle Heat', d: 'Food takes longer to burn.', icon: 'hourglass-not-done', costs: [100, 300, 700] },
-  { id: 'tray', n: 'Bigger Tray', d: 'Carry one more item per level.', icon: 'teapot', costs: [200, 600] },
-  { id: 'plate', n: 'Holding Plates', d: 'One more spot to park finished food.', icon: 'fork-and-knife-with-plate', costs: [180, 500] },
-  { id: 'cushion', n: 'Comfy Cushions', d: 'Customers wait 10% longer per level.', icon: 'couch-and-lamp', costs: [150, 450, 900] },
+// Shop, modelled on how the classic games handled it: every appliance has a
+// level 2 and level 3 model that cooks faster (level 3 also burns slower and,
+// for brewers, makes an extra serving), plus helper appliances and Mochi's gear.
+// Everything is bought with coins earned in the kitchen. No real money anywhere.
+export const TIER_BONUS = [
+  { speed: 1, burn: 1, serv: 0 },
+  { speed: 1.3, burn: 1.15, serv: 0 },
+  { speed: 1.55, burn: 1.45, serv: 1 },
 ];
+const T = (n1, n2, d2, n3, d3, c2, c3) => [
+  { n: n1 },
+  { n: n2, d: d2, cost: c2 },
+  { n: n3, d: d3, cost: c3 },
+];
+export const APPLIANCES = {
+  skillet: T('Skillet', 'Heart Skillet', 'Fries 30% faster. Eggs love it.', 'Star Skillet', 'Fries 55% faster and keeps food from burning.', 250, 900),
+  toaster: T('Toaster', 'Bunny Toaster', 'Pops toast 30% faster.', 'Cloud Toaster', '55% faster, and toast stays golden longer.', 250, 900),
+  juicer: T('Juicer', 'Twirl Juicer', 'Squeezes 30% faster.', 'Rainbow Juicer', 'Squeezes 55% faster.', 300, 1000),
+  oven: T('Oven', 'Cozy Oven', 'Bakes 30% faster, but burns just as slow.', 'Dream Oven', 'Bakes 55% faster and burns much slower.', 450, 1500),
+  chop: T('Chopping board', 'Maple Board', 'It slices even faster!', 'Magic Board', 'Slices and dices in a blink.', 300, 1000),
+  pot: T('Pot', 'Bubble Pot', 'Simmers 30% faster.', 'Starlight Pot', 'Simmers 55% faster and never scorches quickly.', 400, 1400),
+  mixer: T('Mixer', 'Swirl Mixer', 'Whips batter 30% faster.', 'Turbo Mixer', 'Whips batter 55% faster.', 400, 1400),
+  board: T('Plating board', 'Petal Board', 'Plates dishes 30% faster.', 'Crown Board', 'Plates dishes 55% faster.', 500, 1600),
+  coffee: T('Coffee maker', 'Latte Maker', 'Brews 30% faster.', 'Barista Bot', 'Brews 55% faster and pours one extra cup.', 400, 1400),
+  kettle: T('Kettle', 'Bloom Kettle', 'Steeps tea 30% faster.', 'Moon Kettle', 'Steeps 55% faster and pours one extra cup.', 450, 1500),
+  ricecooker: T('Rice cooker', 'Puff Cooker', 'Cooks rice 30% faster.', 'Cloud Cooker', '55% faster and makes one extra bowl.', 500, 1600),
+  steamer: T('Steamer', 'Bamboo Steamer', 'Steams 30% faster.', 'Mist Steamer', 'Steams 55% faster and holds food longer.', 500, 1600),
+};
+export const HELPERS = [
+  { id: 'jar', n: 'Sweet Jar', icon: 'lollipop', d: 'A jar of free lollipops. Give one to any guest to fill up their hearts.',
+    tiers: [{ d: '2 lollipops per shift', cost: 600 }, { d: '3 lollipops per shift', cost: 1500 }, { d: '4 lollipops per shift', cost: 3000 }] },
+  { id: 'plate', n: 'Holding Plates', icon: 'fork-and-knife-with-plate', d: 'Park finished food so it never burns.',
+    tiers: [{ d: 'One more holding plate', cost: 400 }, { d: 'And one more', cost: 1100 }] },
+  { id: 'cushion', n: 'Cozy Seats', icon: 'chair', d: 'Comfy guests wait longer before getting grumpy.',
+    tiers: [{ d: 'Guests wait 10% longer', cost: 350 }, { d: 'Guests wait 20% longer', cost: 900 }, { d: 'Guests wait 30% longer', cost: 1800 }] },
+];
+export const GEAR = [
+  { id: 'paws', n: 'Speedy Paws', icon: 'paw-prints', d: 'Mochi hops around the kitchen faster.',
+    tiers: [{ d: '15% faster', cost: 300 }, { d: '30% faster', cost: 800 }, { d: '45% faster', cost: 1800 }] },
+  { id: 'tray', n: 'Bigger Tray', icon: 'teapot', d: 'Mochi can carry more at once.',
+    tiers: [{ d: 'Carry 3 things', cost: 500 }, { d: 'Carry 4 things', cost: 1500 }] },
+];
+export const JAR_CUPS = [0, 2, 3, 4];
+// Old upgrades that were replaced by per-appliance models; their coins get refunded.
+export const RETIRED_UPGRADES = { stove: [150, 450, 1000], burn: [100, 300, 700] };
 
 export const ANIMALS = ['cat', 'fox', 'bear', 'frog', 'panda', 'owl', 'duck', 'mouse', 'pup', 'raccoon'];
