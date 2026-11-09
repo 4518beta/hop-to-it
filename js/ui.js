@@ -152,23 +152,49 @@ export class UI {
     return d;
   }
 
+  // Points along the road (stops plus in-betweens), used to keep scenery off it.
+  roadSamples() {
+    if (this._road) return this._road;
+    const pts = LEVELS.map((_, i) => this.nodePos(i));
+    const out = [];
+    pts.forEach((p, i) => {
+      const q = pts[i + 1];
+      out.push([p.x, p.y]);
+      if (q) for (let t = 1; t < 8; t++) out.push([p.x + ((q.x - p.x) * t) / 8, p.y + ((q.y - p.y) * t) / 8]);
+    });
+    this._road = out;
+    return out;
+  }
+
   scenery(w) {
     const off = w * 1000;
     const pal = [['#fff1c9', '#c6ecdf', '#ffd6e5'], ['#efe6ff', '#d6f0c8', '#ffd6e5'], ['#cfc6ff', '#bfe9da', '#ffe9b8']][w];
     let g = `<rect x="${off}" y="0" width="1000" height="620" fill="${pal[0]}"/>`;
     g += `<ellipse cx="${off + 250}" cy="640" rx="420" ry="190" fill="${pal[1]}"/><ellipse cx="${off + 780}" cy="660" rx="380" ry="170" fill="${pal[1]}"/>`;
     g += `<ellipse cx="${off + 520}" cy="140" rx="300" ry="70" fill="#ffffff" opacity=".5"/>`;
-    // trees and bushes
-    for (let k = 0; k < 9; k++) {
-      const tx = off + 60 + k * 112 + (k % 2) * 30;
-      const ty = k % 2 ? 560 : 150 + (k % 3) * 18;
-      g += `<rect x="${tx - 5}" y="${ty - 4}" width="10" height="26" rx="4" fill="#d9b39a" stroke="#6b4a63" stroke-width="2.5"/><circle cx="${tx}" cy="${ty - 14}" r="22" fill="${k % 3 ? '#b8eedd' : pal[2]}" stroke="#6b4a63" stroke-width="2.5"/>`;
-    }
-    // little houses
-    for (let k = 0; k < 4; k++) {
-      const hx = off + 150 + k * 230;
-      const hy = k % 2 ? 470 : 205;
-      g += `<rect x="${hx}" y="${hy}" width="46" height="36" rx="5" fill="#fffdfb" stroke="#6b4a63" stroke-width="2.5"/><path d="M${hx - 6} ${hy + 2} L${hx + 23} ${hy - 22} L${hx + 52} ${hy + 2} Z" fill="${['#ff9cc0', '#b9a2f5', '#6ccfb0'][w]}" stroke="#6b4a63" stroke-width="2.5" stroke-linejoin="round"/><rect x="${hx + 17}" y="${hy + 16}" width="12" height="20" rx="3" fill="#ffd6e5"/>`;
+    // trees and houses, kept clear of the road, the stops and the city sign
+    const road = this.roadSamples();
+    const placed = [];
+    const gates = [[off - 50, 375], [off + 950, 375]];
+    const clear = (x, y, r) => road.every(([rx, ry]) => Math.hypot(rx - x, ry - y) > r)
+      && placed.every(([px, py]) => Math.hypot(px - x, py - y) > 62)
+      && gates.every(([gx, gy]) => Math.hypot(gx - x, gy - y) > 95)
+      && !(y < 200 && Math.abs(x - (off + 500)) < 330);
+    const seed = (n) => { const v = Math.sin(n * 12.9898 + w * 78.233) * 43758.5453; return v - Math.floor(v); };
+    let trees = 0;
+    let houses = 0;
+    for (let k = 0; k < 80 && (trees < 12 || houses < 4); k++) {
+      const x = off + 40 + seed(k) * 920;
+      const y = 160 + seed(k + 100) * 420;
+      if (houses < 4 && k % 3 === 0 && clear(x + 23, y + 10, 80)) {
+        houses++;
+        placed.push([x + 23, y + 10]);
+        g += `<rect x="${x}" y="${y}" width="46" height="36" rx="5" fill="#fffdfb" stroke="#6b4a63" stroke-width="2.5"/><path d="M${x - 6} ${y + 2} L${x + 23} ${y - 22} L${x + 52} ${y + 2} Z" fill="${['#ff9cc0', '#b9a2f5', '#6ccfb0'][w]}" stroke="#6b4a63" stroke-width="2.5" stroke-linejoin="round"/><rect x="${x + 17}" y="${y + 16}" width="12" height="20" rx="3" fill="#ffd6e5"/>`;
+      } else if (trees < 12 && clear(x, y - 6, 66)) {
+        trees++;
+        placed.push([x, y - 6]);
+        g += `<rect x="${x - 5}" y="${y - 4}" width="10" height="26" rx="4" fill="#d9b39a" stroke="#6b4a63" stroke-width="2.5"/><circle cx="${x}" cy="${y - 14}" r="22" fill="${k % 3 ? '#b8eedd' : pal[2]}" stroke="#6b4a63" stroke-width="2.5"/>`;
+      }
     }
     return g;
   }
