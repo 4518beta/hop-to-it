@@ -246,7 +246,10 @@ export class Game {
 
     // arrivals
     const free = this.seats.filter((s) => !s.cust);
-    const canSpawn = lv.type === 'timer' ? this.timeLeft > 6 : this.spawned < lv.limit;
+    // Timed shifts work like the classic games: the clock only decides how long new guests
+    // keep coming. When it hits zero the doors close and the shift ends once the guests
+    // still in line have been served (or have left).
+    const canSpawn = lv.type === 'timer' ? this.timeLeft > 0 : this.spawned < lv.limit;
     if (canSpawn && free.length && this.elapsed >= this.nextArrival) {
       this.spawn(pick(free));
       const busy = this.seats.length - free.length;
@@ -264,7 +267,11 @@ export class Game {
 
     // end conditions
     if (lv.type === 'lose' && this.lost >= lv.walkouts) this.finish(true);
-    if (lv.type === 'timer' && this.timeLeft <= 0) this.finish(false);
+    if (lv.type === 'timer' && this.timeLeft <= 0 && !this.doorsClosed) {
+      this.doorsClosed = true;
+      if (this.customers.length) this.showBanner('Last orders!');
+    }
+    if (lv.type === 'timer' && this.timeLeft <= 0 && this.customers.length === 0) this.finish(false);
     if (lv.type !== 'timer' && this.spawned >= lv.limit && this.customers.length === 0) this.finish(false);
 
     this.updateHint();
@@ -652,7 +659,7 @@ export class Game {
     setTimeout(() => this.hooks.onEnd?.({
       coins: this.coins, stars, failed, served: this.served, lost: this.lost,
     }), 900);
-    this.showBanner(failed ? 'Too many unhappy guests...' : this.lv.type === 'timer' ? "Time's up!" : 'Shift complete!');
+    this.showBanner(failed ? 'Too many unhappy guests...' : 'Shift complete!');
   }
 
   pause(on) {
@@ -673,16 +680,24 @@ export class Game {
     const hopY = b.moving ? -Math.abs(Math.sin(b.hop)) * 12 : 0;
     if (b.moving && Math.sin(b.hop) * Math.sin(b.hop - 0.25) < 0) sfx.hop();
     const sc = depthScale(b.y);
-    b.el.style.transform = `translate(${b.x - (BUNNY_W * sc) / 2}px, ${b.y - BUNNY_H * sc + hopY}px) scale(${sc})`;
-    b.el.style.zIndex = Math.round(b.y);
-    b.el.classList.toggle('flip', b.face < 0);
-    b.el.classList.toggle('moving', !!b.moving);
+    const tf = `translate(${(b.x - (BUNNY_W * sc) / 2).toFixed(1)}px, ${(b.y - BUNNY_H * sc + hopY).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+    // Only touch the DOM when something actually changed (avoids style recalcs every frame).
+    if (tf !== b.tf) { b.tf = tf; b.el.style.transform = tf; }
+    const z = Math.round(b.y / 4) * 4;
+    if (z !== b.z) { b.z = z; b.el.style.zIndex = z; }
+    const look = `${b.face < 0}|${!!b.moving}`;
+    if (look !== b.look) {
+      b.look = look;
+      b.el.classList.toggle('flip', b.face < 0);
+      b.el.classList.toggle('moving', !!b.moving);
+    }
 
     for (const c of this.customers) {
-      c.el.style.transform = `translate(${c.x - 50 * c.seat.scale}px, ${c.seat.y - 150 * c.seat.scale}px) scale(${c.seat.scale})`;
+      const ctf = `translate(${(c.x - 50 * c.seat.scale).toFixed(1)}px, ${(c.seat.y - 150 * c.seat.scale).toFixed(1)}px) scale(${c.seat.scale})`;
+      if (ctf !== c.tf) { c.tf = ctf; c.el.style.transform = ctf; }
       if (c.state === 'wait') {
-        const frac = c.patience / c.max;
-        c.el.classList.toggle('impatient', frac < 0.35);
+        const imp = c.patience / c.max < 0.35;
+        if (imp !== c.imp) { c.imp = imp; c.el.classList.toggle('impatient', imp); }
       }
     }
 
@@ -709,10 +724,12 @@ export class Game {
         frac = 1 - s.age / s.burnT;
         color = frac < 0.4 ? '#ff5a5a' : '#ffb340';
       }
-      s.ring.style.opacity = frac >= 0 ? 1 : 0;
-      if (frac >= 0) {
-        s.rfg.style.strokeDashoffset = `${100.5 * (1 - frac)}`;
-        s.rfg.style.stroke = color;
+      const show = frac >= 0;
+      if (show !== s.ringOn) { s.ringOn = show; s.ring.style.opacity = show ? 1 : 0; }
+      if (show) {
+        const off = (100.5 * (1 - frac)).toFixed(1);
+        if (off !== s.ringOff) { s.ringOff = off; s.rfg.style.strokeDashoffset = off; }
+        if (color !== s.ringColor) { s.ringColor = color; s.rfg.style.stroke = color; }
       }
     }
     this.updateHud();
@@ -753,11 +770,14 @@ export class Game {
     if (force || shown !== this.shownCoins) {
       this.shownCoins = shown;
       this.coinsEl.textContent = shown;
-      this.coinFill.style.width = `${Math.min(100, (this.coins / lv.goals[2]) * 100)}%`;
+      this.coinFill.style.transform = `scaleX(${Math.min(1, this.coins / lv.goals[2])})`;
       this.marks.forEach((m, i) => m.classList.toggle('got', this.coins >= lv.goals[i]));
     }
     let g;
-    if (lv.type === 'timer') {
+    if (lv.type === 'timer' && this.timeLeft <= 0) {
+      const n = this.customers.filter((c) => c.state === 'enter' || c.state === 'wait').length;
+      g = `${art.ic('paw-prints')} Last orders: ${n} left`;
+    } else if (lv.type === 'timer') {
       const s = Math.ceil(this.timeLeft);
       g = `${art.ic('stopwatch')} ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     } else {
@@ -766,9 +786,14 @@ export class Game {
     if (lv.type === 'lose') g += ` · ${art.ic('broken-heart')} ${this.lost}/${lv.walkouts}`;
     if (g !== this.lastGoal) { this.lastGoal = g; this.goalEl.innerHTML = g; }
     const hm = this.rush > 0 ? this.rush / RUSH_TIME : this.heart / RUSH_NEED;
-    this.hmFill.style.width = `${Math.min(100, hm * 100)}%`;
-    this.hud.classList.toggle('rush', this.rush > 0);
-    this.hud.classList.toggle('lowtime', lv.type === 'timer' && this.timeLeft < 15 && this.timeLeft > 0);
+    const hmS = Math.min(1, hm).toFixed(3);
+    if (hmS !== this.hmS) { this.hmS = hmS; this.hmFill.style.transform = `scaleX(${hmS})`; }
+    const flags = `${this.rush > 0}|${lv.type === 'timer' && this.timeLeft < 15 && this.timeLeft > 0}`;
+    if (flags !== this.hudFlags) {
+      this.hudFlags = flags;
+      this.hud.classList.toggle('rush', this.rush > 0);
+      this.hud.classList.toggle('lowtime', lv.type === 'timer' && this.timeLeft < 15 && this.timeLeft > 0);
+    }
   }
 
   popText(x, y, text, kind) {
@@ -813,7 +838,7 @@ export class Game {
     const intro = {
       burn: 'Finished food burns if you leave it too long. Watch for the red ring!',
       plate: 'Holding plates (left) keep finished food safe while you work.',
-      timer: 'Timed shift! Serve as many guests as you can before the clock runs out.',
+      timer: 'Guests keep coming until the clock runs out. Then serve the last ones in line!',
       lose: `Careful: if ${this.lv.walkouts} guests leave unhappy, the shift ends early.`,
       multi: 'Some guests order two dishes. Serve both to get paid.',
       servings: 'Coffee makers brew 3 cups at once. Tap again for each cup.',

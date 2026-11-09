@@ -172,7 +172,7 @@ export const WORLDS = [
   },
 ];
 
-// type: 'seat' = serve a set number of customers, 'timer' = serve as many as you can,
+// type: 'seat' = serve a set number of customers, 'timer' = guests arrive until the clock runs out, then the line is served out,
 // 'lose' = set number of customers but you fail after `walkouts` leave unhappy.
 // h = seconds per patience heart, arrive = [min,max] seconds between arrivals,
 // multi = chance of a 2-dish order, extra = additional copies of a station.

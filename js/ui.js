@@ -7,7 +7,7 @@ import { Game } from './game.js';
 
 const TYPE_TEXT = {
   seat: (lv) => `Serve ${lv.limit} guests`,
-  timer: (lv) => `${Math.floor(lv.limit / 60)}:${String(lv.limit % 60).padStart(2, '0')} timed shift`,
+  timer: (lv) => `Guests arrive for ${Math.floor(lv.limit / 60)}:${String(lv.limit % 60).padStart(2, '0')}, then serve the last in line`,
   lose: (lv) => `${lv.limit} guests, no more than ${lv.walkouts - 1} may leave unhappy`,
 };
 
@@ -242,7 +242,7 @@ export class UI {
         m.classList.remove('hopping');
         m.classList.add('landed');
         sfx.star(2);
-        this.overlay.querySelector(`.node[data-arg="${to}"]`)?.classList.add('current', 'pop');
+        this.overlay.querySelector(`.node[data-arg="${to}"]`)?.classList.add('current', 'node-pop');
       }
     };
     requestAnimationFrame(tick);

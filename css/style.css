@@ -206,7 +206,7 @@ body.portrait #rotate { display: block; }
 .hud.lowtime .lv-goal { color: var(--red); animation: pulse .5s infinite alternate; }
 .hud-c { flex: 1; }
 .coinbar { position: relative; height: 22px; border-radius: 11px; background: #f1e1d6; border: 3px solid var(--ink); margin: 0 34px 0 8px; }
-.coinfill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: linear-gradient(var(--gold), #f3a92a); width: 0; transition: width .3s; }
+.coinfill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: linear-gradient(var(--gold), #f3a92a); width: 100%; transform: scaleX(0); transform-origin: 0 50%; transition: transform .3s var(--ease, ease-out); }
 .coins { position: absolute; left: 8px; top: -2px; font-weight: 800; font-size: 16px; font-family: inherit; }
 .goalmark { position: absolute; top: -6px; transform: translateX(-50%); text-align: center; line-height: 1; }
 .gstar { font-size: 24px; color: #e2cfc2; -webkit-text-stroke: 2px var(--ink); paint-order: stroke; }
@@ -214,7 +214,7 @@ body.portrait #rotate { display: block; }
 .gnum { display: block; font-size: 10px; font-weight: 700; margin-top: -2px; }
 .hud-r { display: flex; align-items: center; gap: 8px; }
 .heartmeter { position: relative; width: 110px; height: 22px; border-radius: 11px; background: #f6dbe4; border: 3px solid var(--ink); overflow: hidden; }
-.hm-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #ffb3c9, var(--pink-d)); transition: width .3s; }
+.hm-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #ffb3c9, var(--pink-d)); width: 100%; transform: scaleX(0); transform-origin: 0 50%; transition: transform .3s var(--ease, ease-out); }
 .heartmeter span { position: absolute; left: 4px; top: -2px; font-family: var(--emoji); font-size: 15px; }
 .hud.rush .heartmeter { box-shadow: 0 0 12px var(--pink); }
 .hbtn { width: 40px; height: 40px; border-radius: 12px; border: 3px solid var(--ink); background: #fff; font-size: 18px; font-family: var(--emoji); box-shadow: 0 3px 0 rgba(90, 52, 66, .3); }
@@ -514,7 +514,7 @@ html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
 .map-world .node .ty { width: 24px; height: 24px; right: -8px; top: -8px; }
 .map-world .node .ty .ic { width: 14px; height: 14px; }
 .map-world .node.current { background: #ffe3ee; box-shadow: 0 5px 0 var(--ink), 0 0 0 6px rgba(255, 156, 192, .45); }
-.map-world .node.pop { animation: nodepop .5s ease-out; }
+.map-world .node.node-pop { animation: nodepop .5s ease-out; }
 @keyframes nodepop { 50% { transform: translate(-50%, -50%) scale(1.25); } }
 .map-mochi { position: absolute; width: 74px; height: 114px; transform: translate(-50%, -128%); z-index: 3; pointer-events: none; }
 .map-mochi .mm-body { width: 100%; height: 100%; animation: bob 2.2s ease-in-out infinite; transform-origin: 50% 100%; }
@@ -559,3 +559,21 @@ html, body { position: fixed; inset: 0; width: 100%; height: 100%; }
 .bubble { min-width: 58px; }
 .b-items .itm { width: 30px; height: 30px; }
 .b-hearts { font-size: 11px; }
+
+/* ---- performance: cache filtered art on the GPU, keep per-frame work compositor-only ---- */
+:root { --ease: cubic-bezier(0.2, 0, 0, 1); }
+#stage { contain: layout paint; }
+.cust { will-change: transform; }
+.cust-body, .st-art, .mm-body, .title-bunny { will-change: transform; }
+.hm-fill, .coinfill { will-change: transform; }
+/* In the kitchen the bunny moves every frame: no inner SVG animations, which would
+   force its sticker outline to be redrawn on every frame. */
+.kitchen .bunny-svg .eye, .kitchen .bunny-svg .ear { animation: none; }
+.kitchen .bunny-body { will-change: transform; }
+/* Lighter sticker outline in-game (3 passes instead of 5). */
+.cust svg, .st-art svg, .bin svg, .trash svg, .hplate svg, .kitchen .bunny-svg {
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(0 3px 2px rgba(107, 74, 99, .2));
+}
+@media (prefers-reduced-motion: reduce) {
+  .cust-body, .st-art, .mm-body, .title-bunny, .pointer.show, .bubble.low .b-hearts i.on { animation: none !important; }
+}
