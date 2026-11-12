@@ -99,13 +99,13 @@ export class Game {
     this.scene = scene;
     // 3/4 top-down food truck: street + skyline behind the slanted service window (upper left),
     // U-shaped kitchen (back counter, left and right columns) and a perspective floor.
-    el('bg', `<img src="assets/kitchen/bg-${world.theme}.webp" alt="" draggable="false">`, scene);
+    el('bg', art.truckSceneSVG(world.theme), scene);
     this.custLayer = el('layer cust-layer', '', scene);
-    el('service', `<img src="assets/kitchen/service-${world.theme}.webp" alt="" draggable="false">`, scene);
+    el('service', art.serviceCounterSVG(world.theme), scene);
     this.bubbleLayer = el('layer bubble-layer', '', scene);
     this.kitchen = el('layer kitchen', '', scene);
     this.fx = el('layer fx', '', scene);
-    el('fg-front', `<img src="assets/kitchen/front-${world.theme}.webp" alt="" draggable="false"><div class="truck-name">Mochi's · ${world.name}</div>`, this.kitchen);
+    el('fg-front', art.frontCounterSVG(world.theme, world.name), this.kitchen);
 
     // queue spots along the slanted service counter (back = upper right, front = lower left)
     const spots = QUEUE.filter((_, i) => lv.seats >= 5 || [[2], [1, 3], [0, 2, 4], [0, 1, 3, 4]][lv.seats - 1].includes(i));
