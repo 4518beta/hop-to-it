@@ -225,19 +225,22 @@ const THEME = {
 };
 const counterTopY = (x) => 224 + (372 - x) * 0.4167; // slanted service counter edge
 
+// Floor in the classic 3/4 view: no vanishing point, every tile the same size,
+// rows foreshortened so the floor reads as lying flat. Walls and side counters
+// use the same parallel projection, so all edges agree.
 const perspectiveFloor = (c) => {
-  const VPX = 600; const VPY = -380; const Y0 = 150; const Y1 = 620;
-  const rows = 9; const cols = 26; const w = 92;
-  const ys = Array.from({ length: rows + 1 }, (_, k) => Y0 + (Y1 - Y0) * (k / rows) ** 1.18);
-  const xAt = (j, y) => VPX + (j * w - cols * w / 2 + 40) * ((y - VPY) / (Y1 - VPY));
+  const Y0 = 150; const Y1 = 620; const TW = 62; const TH = 40;
   let out = `<rect x="0" y="${Y0}" width="1000" height="${Y1 - Y0}" fill="${c.floor1}"/>`;
-  for (let k = 0; k < rows; k++) {
-    for (let j = 0; j < cols; j++) {
-      if ((j + k) % 2) continue;
-      const a = ys[k]; const b = ys[k + 1];
-      out += `<path d="M${xAt(j, a)} ${a} L${xAt(j + 1, a)} ${a} L${xAt(j + 1, b)} ${b} L${xAt(j, b)} ${b}Z" fill="${c.floor2}"/>`;
+  for (let r = 0; r * TH + Y0 < Y1; r++) {
+    for (let k = 0; k * TW < 1000; k++) {
+      if ((k + r) % 2) continue;
+      out += `<rect x="${k * TW - 8}" y="${Y0 + r * TH}" width="${TW}" height="${TH}" fill="${c.floor2}"/>`;
     }
   }
+  // soft contact shadows where the floor meets the counters
+  out += `<defs><linearGradient id="fsh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b4a63" stop-opacity=".22"/><stop offset="1" stop-color="#6b4a63" stop-opacity="0"/></linearGradient>
+    <linearGradient id="fshr" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#6b4a63" stop-opacity=".2"/><stop offset="1" stop-color="#6b4a63" stop-opacity="0"/></linearGradient></defs>
+    <rect x="0" y="266" width="1000" height="22" fill="url(#fsh)"/><rect x="852" y="226" width="26" height="394" fill="url(#fshr)"/>`;
   return out;
 };
 
@@ -262,11 +265,11 @@ export const truckSceneSVG = (theme) => {
   g += `<path d="M540 202 L1000 202 L1000 226 L540 226Z" fill="${c.top}" ${S2}/><path d="M540 226 L1000 226 L1000 266 L540 266Z" fill="${c.face}" ${S2}/>`;
   for (let x = 560; x < 990; x += 70) g += `<rect x="${x}" y="233" width="58" height="26" rx="5" fill="#ffffff66" stroke="${INK}" stroke-width="1.5"/>`;
   // right column counter
-  g += `<path d="M892 226 L1000 226 L1000 560 L904 560Z" fill="${c.truck2}" ${S2}/>`;
-  for (let y = 250; y < 560; y += 34) g += `<path d="M900 ${y} H1000" stroke="${c.face}" stroke-width="2"/>`;
-  g += `<path d="M880 230 L892 226 L904 560 L892 566Z" fill="${c.face}" ${S2}/>`;
+  g += `<path d="M892 226 L1000 226 L1000 560 L892 560Z" fill="${c.truck2}" ${S2}/>`;
+  for (let y = 250; y < 560; y += 34) g += `<path d="M895 ${y} H1000" stroke="${c.face}" stroke-width="2"/>`;
+  g += `<path d="M878 232 L892 226 L892 560 L878 566Z" fill="${c.face}" ${S2}/>`;
   // left column counter (under the window)
-  g += `<path d="M0 ${counterTopY(0) + 50} L160 ${counterTopY(160) + 50} L170 620 L0 620Z" fill="${c.truck2}" ${S2}/><path d="M160 ${counterTopY(160) + 50} L178 ${counterTopY(160) + 56} L188 620 L170 620Z" fill="${c.face}" ${S2}/>`;
+  g += `<path d="M0 ${counterTopY(0) + 50} L160 ${counterTopY(160) + 50} L160 620 L0 620Z" fill="${c.truck2}" ${S2}/><path d="M160 ${counterTopY(160) + 50} L174 ${counterTopY(160) + 56} L174 620 L160 620Z" fill="${c.face}" ${S2}/>`;
   // awning over the window
   g += `<path d="M0 52 H540 V70 H0Z" fill="${c.truck}"/>`;
   for (let x = 0; x < 540; x += 36) g += `<path d="M${x} 70 h36 v8 a18 10 0 0 1 -36 0Z" fill="${(x / 36) % 2 ? '#fff' : c.truck}" stroke="${INK}" stroke-width="2.5"/>`;
@@ -290,9 +293,9 @@ export const frontCounterSVG = (theme, name) => {
   const c = THEME[theme];
   const S2 = `stroke="${INK}" stroke-width="3" stroke-linejoin="round"`;
   return `<svg viewBox="0 500 1000 120" preserveAspectRatio="none">
-    <path d="M172 506 L896 506 L900 532 L178 532Z" fill="${c.top}" ${S2}/>
-    <path d="M178 532 L900 532 L900 640 L178 640Z" fill="${c.truck}" ${S2}/>
-    <path d="M178 546 H900" stroke="${c.truck2}" stroke-width="9"/>
+    <path d="M174 506 L898 506 L898 532 L174 532Z" fill="${c.top}" ${S2}/>
+    <path d="M174 532 L898 532 L898 640 L174 640Z" fill="${c.truck}" ${S2}/>
+    <path d="M174 546 H898" stroke="${c.truck2}" stroke-width="9"/>
     <circle cx="290" cy="626" r="30" fill="#6b5a70" ${S2}/><circle cx="290" cy="626" r="12" fill="#fff"/>
     <circle cx="780" cy="626" r="30" fill="#6b5a70" ${S2}/><circle cx="780" cy="626" r="12" fill="#fff"/>
     <text x="540" y="590" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="30" fill="#fff" stroke="${INK}" stroke-width="2.5" paint-order="stroke">Mochi's · ${name}</text>

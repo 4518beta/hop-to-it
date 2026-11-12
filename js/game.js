@@ -1,5 +1,5 @@
 // Hop to It! - core gameplay engine (MIT)
-import { ITEMS, STATIONS, ANIMALS, WORLDS, chainTime, TIER_BONUS, JAR_CUPS, APPLIANCES } from './data.js';
+import { ITEMS, STATIONS, ANIMALS, WORLDS, chainTime, TIER_BONUS, JAR_CUPS, applianceName } from './data.js';
 import * as art from './art.js';
 import { sfx } from './audio.js';
 import { upg, tier } from './save.js';
@@ -141,12 +141,12 @@ export class Game {
         const s = {
           kind: 'station', type, row: zn, x, y, sx: Z.stand(x, y)[0], sy: Z.stand(x, y)[1],
           contents: [], state: 'idle', t: 0, dur: 0, product: null, servings: 0, age: 0, burnT: 0, step: null, dirty: true,
-          tier: tier(this.save, type),
+          tier: tier(this.save, this.lv.world, type),
         };
         s.el = el(`station row-${zn}`, `<div class="st-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[type]}</svg></div>
           <div class="st-items"></div>
           <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="rbg"/><circle cx="20" cy="20" r="16" class="rfg"/></svg>
-          <div class="st-label">${s.tier ? APPLIANCES[type][s.tier].n : STATIONS[type].n}</div><div class="qb"></div>
+          <div class="st-label">${applianceName(this.lv.world, type, s.tier)}</div><div class="qb"></div>
           ${s.tier ? `<div class="tier-badge">${art.ic(s.tier === 2 ? 'crown' : 'sparkles')}</div>` : ''}`, this.kitchen);
         if (s.tier) s.el.classList.add(`tier-${s.tier}`);
         Object.assign(s.el.style, { left: `${x}px`, top: `${y}px`, width: `${Z.size}px`, height: `${Z.size}px`, zIndex: zn === 'front' ? 560 : Math.round(y + Z.size / 2) });

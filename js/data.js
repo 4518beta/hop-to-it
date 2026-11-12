@@ -268,25 +268,62 @@ export const TIER_BONUS = [
   { speed: 1.3, burn: 1.15, serv: 0 },
   { speed: 1.55, burn: 1.45, serv: 1 },
 ];
-const T = (n1, n2, d2, n3, d3, c2, c3) => [
-  { n: n1 },
-  { n: n2, d: d2, cost: c2 },
-  { n: n3, d: d3, cost: c3 },
+// Each city has its own line of appliances, tuned to that city's recipes.
+// A New Yolk City griddle and a Tokyummy tempura fryer are different machines,
+// upgraded separately. The engine still cooks by station type.
+const CITY_PRICE = [1, 1.45, 1.9];
+const LINE = (n1, n2, d2, n3, d3, c2, c3) => [{ n: n1 }, { n: n2, d: d2, cost: c2 }, { n: n3, d: d3, cost: c3 }];
+const FAST = '30% faster';
+const TOP = '55% faster and burns slower';
+const TOP_CUP = '55% faster and pours one extra serving';
+export const CITY_APPLIANCES = [
+  { // New Yolk City: a breakfast and burger diner
+    skillet: LINE('Diner Griddle', 'Sizzle Griddle', FAST, 'Chrome Griddle', TOP, 260, 900),
+    toaster: LINE('Diner Toaster', 'Four-Slot Toaster', FAST, 'Chrome Toaster', TOP, 240, 850),
+    juicer: LINE('Juice Bar Press', 'Twin Press', FAST, 'Fresh-Squeeze Pro', '55% faster', 280, 950),
+    oven: LINE('Potato Oven', 'Double Oven', FAST, 'Broiler Pro', TOP, 420, 1400),
+    chop: LINE('Salad Board', 'Butcher Block', FAST, 'Pro Butcher Block', '55% faster', 280, 950),
+    pot: LINE('Soup Pot', 'Big Soup Pot', FAST, 'Steam Soup Kettle', TOP, 380, 1300),
+    mixer: LINE('Pancake Mixer', 'Stand Mixer', FAST, 'Diner Turbo Mixer', '55% faster', 380, 1300),
+    board: LINE('Burger Station', 'Double Burger Station', FAST, 'Burger Bar', '55% faster', 480, 1500),
+  },
+  { // Pie-ris: a bakery and tea salon
+    coffee: LINE('Espresso Machine', 'Cafe Creme Machine', FAST, 'Grand Espresso', TOP_CUP, 300, 1000),
+    mixer: LINE('Pastry Mixer', 'Copper Mixer', FAST, 'Patissier Mixer', '55% faster', 300, 1000),
+    oven: LINE('Boulangerie Oven', 'Brick Oven', FAST, 'Grand Four', TOP, 320, 1100),
+    kettle: LINE('Salon Kettle', 'Porcelain Kettle', FAST, 'Silver Tea Urn', TOP_CUP, 300, 1000),
+    chop: LINE('Pastry Board', 'Marble Board', FAST, "Chef's Marble", '55% faster', 260, 900),
+    board: LINE('Tart Table', 'Marble Tart Table', FAST, 'Patisserie Counter', '55% faster', 320, 1100),
+  },
+  { // Tokyummy: a noodle and sushi bar
+    ricecooker: LINE('Rice Cooker', 'Fuzzy Rice Cooker', FAST, 'Pressure Rice Cooker', TOP_CUP, 280, 950),
+    kettle: LINE('Tetsubin Kettle', 'Cast Iron Tetsubin', FAST, 'Ceremony Kettle', TOP_CUP, 260, 900),
+    board: LINE('Sushi Board', 'Hinoki Board', FAST, 'Master Sushi Counter', '55% faster', 300, 1000),
+    pot: LINE('Ramen Pot', 'Tonkotsu Pot', FAST, 'Ramen Master Pot', TOP, 320, 1100),
+    skillet: LINE('Tempura Fryer', 'Twin Fryer', FAST, 'Golden Fryer', TOP, 300, 1000),
+    chop: LINE('Cutting Board', 'Hinoki Cutting Board', FAST, 'Sashimi Board', '55% faster', 260, 900),
+    steamer: LINE('Bamboo Steamer', 'Double Steamer', FAST, 'Mist Steamer', TOP, 320, 1100),
+  },
 ];
-export const APPLIANCES = {
-  skillet: T('Skillet', 'Heart Skillet', 'Fries 30% faster. Eggs love it.', 'Star Skillet', 'Fries 55% faster and keeps food from burning.', 250, 900),
-  toaster: T('Toaster', 'Bunny Toaster', 'Pops toast 30% faster.', 'Cloud Toaster', '55% faster, and toast stays golden longer.', 250, 900),
-  juicer: T('Juicer', 'Twirl Juicer', 'Squeezes 30% faster.', 'Rainbow Juicer', 'Squeezes 55% faster.', 300, 1000),
-  oven: T('Oven', 'Cozy Oven', 'Bakes 30% faster, but burns just as slow.', 'Dream Oven', 'Bakes 55% faster and burns much slower.', 450, 1500),
-  chop: T('Chopping board', 'Maple Board', 'It slices even faster!', 'Magic Board', 'Slices and dices in a blink.', 300, 1000),
-  pot: T('Pot', 'Bubble Pot', 'Simmers 30% faster.', 'Starlight Pot', 'Simmers 55% faster and never scorches quickly.', 400, 1400),
-  mixer: T('Mixer', 'Swirl Mixer', 'Whips batter 30% faster.', 'Turbo Mixer', 'Whips batter 55% faster.', 400, 1400),
-  board: T('Plating board', 'Petal Board', 'Plates dishes 30% faster.', 'Crown Board', 'Plates dishes 55% faster.', 500, 1600),
-  coffee: T('Coffee maker', 'Latte Maker', 'Brews 30% faster.', 'Barista Bot', 'Brews 55% faster and pours one extra cup.', 400, 1400),
-  kettle: T('Kettle', 'Bloom Kettle', 'Steeps tea 30% faster.', 'Moon Kettle', 'Steeps 55% faster and pours one extra cup.', 450, 1500),
-  ricecooker: T('Rice cooker', 'Puff Cooker', 'Cooks rice 30% faster.', 'Cloud Cooker', '55% faster and makes one extra bowl.', 500, 1600),
-  steamer: T('Steamer', 'Bamboo Steamer', 'Steams 30% faster.', 'Mist Steamer', 'Steams 55% faster and holds food longer.', 500, 1600),
+CITY_APPLIANCES.forEach((line, w) => Object.values(line).forEach((tiers) => tiers.forEach((t) => {
+  if (t.cost) t.cost = Math.round((t.cost * CITY_PRICE[w]) / 10) * 10;
+})));
+export const appKey = (world, type) => `app_${world}_${type}`;
+export const applianceName = (world, type, lvl = 0) => CITY_APPLIANCES[world]?.[type]?.[lvl]?.n || STATIONS[type].n;
+
+// Dishes in a city that pass through a given appliance, for the shop description.
+export const dishesFor = (world, type) => {
+  const dishes = new Set(LEVELS.filter((l) => l.world === world).flatMap((l) => l.dishes));
+  const uses = new Set();
+  dishes.forEach((d) => chainFor(d).forEach((st) => { if (st.st === type) uses.add(d); }));
+  return [...uses].map((d) => ITEMS[d].n);
 };
+// What the earlier, city-agnostic models cost; refunded once on load.
+export const RETIRED_APPLIANCES = {
+  skillet: [250, 900], toaster: [250, 900], juicer: [300, 1000], oven: [450, 1500], chop: [300, 1000], pot: [400, 1400],
+  mixer: [400, 1400], board: [500, 1600], coffee: [400, 1400], kettle: [450, 1500], ricecooker: [500, 1600], steamer: [500, 1600],
+};
+
 export const HELPERS = [
   { id: 'jar', n: 'Sweet Jar', icon: 'lollipop', d: 'A jar of free lollipops. Give one to any guest to fill up their hearts.',
     tiers: [{ d: '2 lollipops per shift', cost: 600 }, { d: '3 lollipops per shift', cost: 1500 }, { d: '4 lollipops per shift', cost: 3000 }] },

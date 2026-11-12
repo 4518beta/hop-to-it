@@ -1,5 +1,5 @@
 // Progress is stored on this device only. No accounts, no servers.
-import { RETIRED_UPGRADES } from './data.js';
+import { RETIRED_UPGRADES, RETIRED_APPLIANCES, appKey } from './data.js';
 const KEY = 'hop-to-it-v1';
 
 const fresh = () => ({
@@ -21,6 +21,13 @@ export const load = () => {
       if (lvl) out.wallet += costs.slice(0, lvl).reduce((a, b) => a + b, 0);
       delete out.upgrades[id];
     });
+    // Appliances used to be shared by every city; refund those models.
+    Object.entries(RETIRED_APPLIANCES).forEach(([type, costs]) => {
+      const id = `app_${type}`;
+      const lvl = out.upgrades[id] || 0;
+      if (lvl) out.wallet += costs.slice(0, lvl).reduce((a, b) => a + b, 0);
+      delete out.upgrades[id];
+    });
     return out;
   } catch {
     return fresh();
@@ -38,4 +45,4 @@ export const reset = () => {
 
 export const totalStars = (save) => Object.values(save.stars).reduce((a, b) => a + b, 0);
 export const upg = (save, id) => save.upgrades[id] || 0;
-export const tier = (save, type) => save.upgrades[`app_${type}`] || 0;
+export const tier = (save, world, type) => save.upgrades[appKey(world, type)] || 0;

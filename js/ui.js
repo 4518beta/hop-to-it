@@ -1,5 +1,5 @@
 // Menus and screens for Hop to It! (MIT)
-import { ITEMS, STATIONS, LEVELS, WORLDS, APPLIANCES, HELPERS, GEAR, TIER_BONUS, chainFor } from './data.js';
+import { ITEMS, STATIONS, LEVELS, WORLDS, CITY_APPLIANCES, appKey, dishesFor, HELPERS, GEAR, TIER_BONUS, chainFor } from './data.js';
 import * as art from './art.js';
 import { sfx, setSound } from './audio.js';
 import { store, reset, totalStars, upg } from './save.js';
@@ -54,6 +54,7 @@ export class UI {
       shop: () => this.shop(arg),
       buy: () => this.buy(arg),
       shoptab: () => this.shop(undefined, arg),
+      shopcity: () => { this.shopCity = +arg; this.shop(); },
       settings: () => this.settings(arg),
       toggle: () => this.toggle(arg),
       reset: () => this.confirmReset(),
@@ -385,20 +386,24 @@ export class UI {
 
   // -------------------------------------------------------------------------
   // Station types Mochi has already cooked with (or can cook with now).
-  seenStations() {
+  seenStations(world) {
     const seen = new Map();
     LEVELS.forEach((lv, i) => {
-      if (!(this.cityOpen(lv.world) && this.levelUnlocked(i))) return;
+      if (lv.world !== world || !(this.cityOpen(lv.world) && this.levelUnlocked(i))) return;
       lv.stationTypes.forEach((t) => { if (!seen.has(t)) seen.set(t, i); });
     });
     return seen;
   }
 
   shopItems() {
-    const seen = this.seenStations();
-    const apps = Object.keys(APPLIANCES).map((t) => {
-      const firstLv = LEVELS.find((l) => l.stationTypes.includes(t));
-      return { kind: 'app', id: `app_${t}`, type: t, lvl: this.save.upgrades[`app_${t}`] || 0, open: seen.has(t), unlockAt: firstLv?.id };
+    // every city's own appliance line
+    const apps = CITY_APPLIANCES.flatMap((line, w) => {
+      const seen = this.seenStations(w);
+      return Object.keys(line).map((t) => {
+        const firstLv = LEVELS.find((l) => l.world === w && l.stationTypes.includes(t));
+        const id = appKey(w, t);
+        return { kind: 'app', id, world: w, type: t, lvl: this.save.upgrades[id] || 0, open: seen.has(t), unlockAt: firstLv?.id };
+      });
     });
     const list = (arr, kind) => arr.map((u) => ({ kind, id: u.id, u, lvl: upg(this.save, u.id), open: true }));
     return { apps, helpers: list(HELPERS, 'helper'), gear: list(GEAR, 'gear') };
@@ -415,14 +420,16 @@ export class UI {
   }
 
   costOf(it) {
-    if (it.kind === 'app') return APPLIANCES[it.type][it.lvl + 1]?.cost;
+    if (it.kind === 'app') return CITY_APPLIANCES[it.world][it.type][it.lvl + 1]?.cost;
     return it.u.tiers[it.lvl]?.cost;
   }
 
   shop(from, tab) {
     this.shopFrom = from || this.shopFrom || 'title';
     this.shopTab = tab || this.shopTab || 'apps';
-    const { apps, helpers, gear } = this.shopItems();
+    const { apps: allApps, helpers, gear } = this.shopItems();
+    if (this.shopCity === undefined || !this.cityOpen(this.shopCity)) this.shopCity = 0;
+    const apps = allApps.filter((it) => it.world === this.shopCity);
     const pips = (n, on) => `<span class="pips">${Array.from({ length: n }, (_, k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('')}</span>`;
     const buyBtn = (it) => {
       const cost = this.costOf(it);
@@ -430,14 +437,14 @@ export class UI {
       return `<button class="btn small ${this.save.wallet < cost ? 'disabled' : ''}" data-act="buy" data-arg="${it.id}">${art.ic('coin')} ${cost}</button>`;
     };
     const appCard = (it) => {
-      const tiers = APPLIANCES[it.type];
+      const tiers = CITY_APPLIANCES[it.world][it.type];
       if (!it.open) {
         return `<div class="up app locked" data-id="${it.id}"><div class="up-icon app-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[it.type]}</svg>${art.ic('locked')}</div>
           <div class="up-txt"><b>${tiers[0].n}</b><span>Shows up in ${it.unlockAt}</span></div></div>`;
       }
       const nxt = tiers[it.lvl + 1];
       return `<div class="up app tier-${it.lvl}" data-id="${it.id}"><div class="up-icon app-art"><svg viewBox="0 0 100 100">${art.STATION_SVG[it.type]}</svg>${it.lvl ? `<span class="tier-badge">${art.ic(it.lvl === 2 ? 'crown' : 'sparkles')}</span>` : ''}</div>
-        <div class="up-txt"><b>${tiers[it.lvl].n}</b><span>${nxt ? `Next: <b>${nxt.n}</b>. ${nxt.d}` : `Top model! Cooks ${Math.round((TIER_BONUS[2].speed - 1) * 100)}% faster.`}</span>${pips(3, it.lvl + 1)}</div>
+        <div class="up-txt"><b>${tiers[it.lvl].n}</b><span class="uses">For ${dishesFor(it.world, it.type).join(', ')}</span><span>${nxt ? `Next: <b>${nxt.n}</b>, ${nxt.d}.` : `Top model! Cooks ${Math.round((TIER_BONUS[2].speed - 1) * 100)}% faster.`}</span>${pips(3, it.lvl + 1)}</div>
         ${buyBtn(it)}</div>`;
     };
     const card = (it) => {
@@ -451,6 +458,9 @@ export class UI {
       <p class="small">New appliances cook faster. Paid with coins you earn in the kitchen, never real money.</p>
       <div class="shop-top"><div class="tabs">${tabs.map(([k, n, ic]) => `<button class="tab ${k === this.shopTab ? 'on' : ''}" data-act="shoptab" data-arg="${k}">${art.ic(ic)} ${n}</button>`).join('')}</div>
         <div class="wallet">${art.ic('coin')} ${this.save.wallet}</div></div>
+      ${this.shopTab === 'apps' ? `<div class="city-tabs">${WORLDS.map((w, i) => this.cityOpen(i)
+        ? `<button class="ctab ${i === this.shopCity ? 'on' : ''}" data-act="shopcity" data-arg="${i}">${art.ic(w.icon)} ${w.name}</button>`
+        : `<span class="ctab locked">${art.ic('locked')} ${w.name}</span>`).join('')}</div>` : ''}
       <div class="shop">${body}</div>
       <button class="btn" data-act="${this.shopFrom === 'map' ? 'map' : 'title'}">Back</button></div>`);
   }
